@@ -1,0 +1,18 @@
+{
+  "name": "FreshBoard",
+  "short_name": "FreshBoard",
+  "description": "冰箱食材效期與購物清單管理",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f7faf7",
+  "theme_color": "#2f7f5f",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

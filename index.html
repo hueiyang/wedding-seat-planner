@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#2f7f5f" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="FreshBoard" />
+    <title>FreshBoard</title>
+    <link rel="manifest" href="./manifest.json" />
+    <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./styles.css?v=supabase-sync" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="主要導覽">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 32 32" role="img">
+              <path d="M7 12.5C7 8.9 9.9 6 13.5 6H19c3.3 0 6 2.7 6 6v8.5c0 3-2.5 5.5-5.5 5.5h-8A4.5 4.5 0 0 1 7 21.5v-9Z" fill="currentColor" opacity=".18" />
+              <path d="M11 14.5c4.4-.7 7.8-3 10-6.5 1.9 3.2 1.9 7.2-.2 10.3-2.4 3.6-6.4 4.9-10.7 3.8-.9-2.6-.6-5.1.9-7.6Z" fill="currentColor" />
+            </svg>
+          </div>
+          <div>
+            <h1>FreshBoard</h1>
+            <p>冰箱效期白板</p>
+          </div>
+        </div>
+
+        <nav class="nav-list">
+          <button class="nav-item active" data-view="dashboard" type="button" aria-label="總覽">
+            <span data-icon="layout"></span>
+            <span>總覽</span>
+          </button>
+          <button class="nav-item" data-view="inventory" type="button" aria-label="庫存">
+            <span data-icon="box"></span>
+            <span>庫存</span>
+          </button>
+          <button class="nav-item" data-view="shopping" type="button" aria-label="購物">
+            <span data-icon="cart"></span>
+            <span>購物</span>
+          </button>
+          <button class="nav-item" data-view="history" type="button" aria-label="紀錄">
+            <span data-icon="clock"></span>
+            <span>紀錄</span>
+          </button>
+        </nav>
+
+        <div class="sidebar-note">
+          <p id="syncNote">資料目前儲存在這台裝置的瀏覽器內。</p>
+        </div>
+      </aside>
+
+      <main class="main-panel">
+        <header class="topbar">
+          <div>
+            <p class="date-label" id="todayLabel"></p>
+            <h2 id="viewTitle">今天先吃什麼？</h2>
+          </div>
+          <div class="topbar-actions">
+            <button class="secondary-action" id="authButton" type="button" aria-label="登入同步">
+              <span data-icon="cloud"></span>
+              <span id="authButtonText">登入同步</span>
+            </button>
+            <button class="primary-action" id="addFoodButton" type="button" aria-label="新增食材">
+              <span data-icon="plus"></span>
+              <span>新增食材</span>
+            </button>
+          </div>
+        </header>
+
+        <section class="view active" id="dashboardView" aria-labelledby="viewTitle">
+          <div class="metrics-grid" id="metricsGrid"></div>
+          <div class="content-grid">
+            <section class="panel priority-panel">
+              <div class="panel-header">
+                <div>
+                  <p class="section-kicker">優先處理</p>
+                  <h3>快到期清單</h3>
+                </div>
+                <button class="ghost-action" data-view-jump="inventory" type="button">看全部</button>
+              </div>
+              <div class="priority-list" id="priorityList"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-header">
+                <div>
+                  <p class="section-kicker">冰箱分布</p>
+                  <h3>存放位置</h3>
+                </div>
+              </div>
+              <div class="location-list" id="locationList"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="inventoryView" aria-label="庫存">
+          <div class="toolbar">
+            <label class="search-field">
+              <span data-icon="search"></span>
+              <input id="searchInput" type="search" placeholder="搜尋食材、備註或位置" />
+            </label>
+            <select id="categoryFilter" aria-label="分類篩選"></select>
+            <select id="locationFilter" aria-label="位置篩選"></select>
+            <select id="statusFilter" aria-label="效期篩選">
+              <option value="all">全部狀態</option>
+              <option value="expired">已過期</option>
+              <option value="today">今天到期</option>
+              <option value="soon">3 天內</option>
+              <option value="week">7 天內</option>
+              <option value="safe">安全</option>
+            </select>
+            <button class="secondary-action toolbar-button" id="addLocationButton" type="button">
+              <span data-icon="plus"></span>
+              <span>新增位置</span>
+            </button>
+          </div>
+          <div class="inventory-list" id="inventoryList"></div>
+        </section>
+
+        <section class="view" id="shoppingView" aria-label="購物清單">
+          <form class="inline-form" id="shoppingForm">
+            <input name="name" type="text" placeholder="想買什麼？" required />
+            <input name="quantity" type="text" placeholder="數量" />
+            <button type="submit">加入</button>
+          </form>
+          <div class="shopping-list" id="shoppingList"></div>
+        </section>
+
+        <section class="view" id="historyView" aria-label="歷史紀錄">
+          <div class="history-list" id="historyList"></div>
+        </section>
+      </main>
+    </div>
+
+    <dialog class="item-dialog" id="itemDialog">
+      <form method="dialog" class="item-form" id="itemForm">
+        <div class="dialog-header">
+          <div>
+            <p class="section-kicker">食材資料</p>
+            <h3 id="dialogTitle">新增食材</h3>
+          </div>
+          <button class="icon-button" id="closeDialogButton" value="cancel" type="button" aria-label="關閉">
+            <span data-icon="x"></span>
+          </button>
+        </div>
+
+        <input type="hidden" name="id" />
+        <div class="form-grid">
+          <label>
+            名稱
+            <input name="name" type="text" placeholder="牛奶" required />
+          </label>
+          <label>
+            分類
+            <select name="category" required>
+              <option>飲料</option>
+              <option>蔬菜</option>
+              <option>水果</option>
+              <option>肉類</option>
+              <option>海鮮</option>
+              <option>蛋奶</option>
+              <option>冷凍食品</option>
+              <option>調味料</option>
+              <option>熟食</option>
+              <option>其他</option>
+            </select>
+          </label>
+          <label>
+            數量
+            <input name="quantity" type="text" placeholder="1 瓶" required />
+          </label>
+          <label>
+            位置
+            <select name="storageLocation" required></select>
+          </label>
+          <label>
+            購買日期
+            <input name="purchaseDate" type="date" />
+          </label>
+          <label>
+            到期日期
+            <input name="expiryDate" type="date" required />
+          </label>
+          <label class="full-field">
+            備註
+            <textarea name="note" rows="3" placeholder="已開封、週末要煮、特價購入"></textarea>
+          </label>
+        </div>
+
+        <div class="dialog-actions">
+          <button class="secondary-action" id="cancelFormButton" type="button">取消</button>
+          <button class="primary-action" type="submit">
+            <span data-icon="check"></span>
+            <span>儲存</span>
+          </button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="item-dialog compact-dialog" id="quantityDialog">
+      <form method="dialog" class="item-form" id="quantityForm">
+        <div class="dialog-header">
+          <div>
+            <p class="section-kicker">快速更新</p>
+            <h3 id="quantityTitle">調整數量</h3>
+          </div>
+          <button class="icon-button" id="closeQuantityButton" type="button" aria-label="關閉">
+            <span data-icon="x"></span>
+          </button>
+        </div>
+        <input type="hidden" name="id" />
+        <label class="single-field">
+          目前數量
+          <input name="quantity" type="text" required />
+        </label>
+        <div class="dialog-actions">
+          <button class="secondary-action" id="cancelQuantityButton" type="button">取消</button>
+          <button class="primary-action" type="submit">
+            <span data-icon="check"></span>
+            <span>更新</span>
+          </button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="item-dialog compact-dialog" id="locationDialog">
+      <form method="dialog" class="item-form" id="locationForm">
+        <div class="dialog-header">
+          <div>
+            <p class="section-kicker">位置管理</p>
+            <h3>新增存放位置</h3>
+          </div>
+          <button class="icon-button" id="closeLocationButton" type="button" aria-label="關閉">
+            <span data-icon="x"></span>
+          </button>
+        </div>
+        <div class="form-grid">
+          <label>
+            位置名稱
+            <input name="name" type="text" placeholder="例如：冷藏蔬果抽屜" required />
+          </label>
+          <label>
+            類型
+            <select name="group" required>
+              <option value="fridge">冷藏</option>
+              <option value="freezer">冷凍庫</option>
+              <option value="pantry">常溫櫃</option>
+            </select>
+          </label>
+        </div>
+        <div class="dialog-actions">
+          <button class="secondary-action" id="cancelLocationButton" type="button">取消</button>
+          <button class="primary-action" type="submit">
+            <span data-icon="check"></span>
+            <span>新增</span>
+          </button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="item-dialog compact-dialog" id="authDialog">
+      <form method="dialog" class="item-form" id="authForm">
+        <div class="dialog-header">
+          <div>
+            <p class="section-kicker">雲端同步</p>
+            <h3>登入 FreshBoard</h3>
+          </div>
+          <button class="icon-button" id="closeAuthButton" type="button" aria-label="關閉">
+            <span data-icon="x"></span>
+          </button>
+        </div>
+        <p class="auth-status" id="authStatus">登入後，這台裝置的資料會同步到 Supabase。</p>
+        <div class="form-grid">
+          <label>
+            Email
+            <input name="email" type="email" autocomplete="email" placeholder="you@example.com" required />
+          </label>
+          <label>
+            密碼
+            <input name="password" type="password" autocomplete="current-password" placeholder="至少 6 個字元" required />
+          </label>
+        </div>
+        <div class="dialog-actions auth-actions">
+          <button class="secondary-action" id="signOutButton" type="button">登出</button>
+          <button class="secondary-action" name="authMode" value="signUp" type="submit">建立帳號</button>
+          <button class="primary-action" name="authMode" value="signIn" type="submit">
+            <span data-icon="check"></span>
+            <span>登入</span>
+          </button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="confirm-dialog" id="confirmDialog">
+      <form method="dialog" class="confirm-form" id="confirmForm">
+        <div class="confirm-icon" id="confirmIcon" aria-hidden="true"></div>
+        <div>
+          <p class="section-kicker" id="confirmKicker">確認動作</p>
+          <h3 id="confirmTitle">確定要更新狀態？</h3>
+          <p id="confirmMessage"></p>
+        </div>
+        <div class="dialog-actions">
+          <button class="secondary-action" id="cancelConfirmButton" type="button">取消</button>
+          <button class="danger-action" id="confirmActionButton" type="submit">確認</button>
+        </div>
+      </form>
+    </dialog>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="./app.js?v=supabase-sync"></script>
+  </body>
+</html>
