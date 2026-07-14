@@ -1,0 +1,18 @@
+{
+  "name": "囍座位規劃",
+  "short_name": "座位規劃",
+  "description": "婚禮賓客、座位與禮金管理工具",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f8f9f7",
+  "theme_color": "#2f6d58",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
