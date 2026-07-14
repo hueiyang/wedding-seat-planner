@@ -3,51 +3,61 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#2f7f5f" />
+    <meta name="theme-color" content="#2f6d58" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-title" content="FreshBoard" />
-    <title>FreshBoard</title>
+    <meta name="apple-mobile-web-app-title" content="囍座位規劃" />
+    <title>囍座位規劃</title>
     <link rel="manifest" href="./manifest.json" />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=supabase-sync" />
+    <link rel="stylesheet" href="./styles.css?v=wedding-planner-13" />
   </head>
   <body>
     <div class="app-shell">
       <aside class="sidebar" aria-label="主要導覽">
         <div class="brand">
-          <div class="brand-mark" aria-hidden="true">
-            <svg viewBox="0 0 32 32" role="img">
-              <path d="M7 12.5C7 8.9 9.9 6 13.5 6H19c3.3 0 6 2.7 6 6v8.5c0 3-2.5 5.5-5.5 5.5h-8A4.5 4.5 0 0 1 7 21.5v-9Z" fill="currentColor" opacity=".18" />
-              <path d="M11 14.5c4.4-.7 7.8-3 10-6.5 1.9 3.2 1.9 7.2-.2 10.3-2.4 3.6-6.4 4.9-10.7 3.8-.9-2.6-.6-5.1.9-7.6Z" fill="currentColor" />
-            </svg>
-          </div>
+          <div class="brand-mark" aria-hidden="true">囍</div>
           <div>
-            <h1>FreshBoard</h1>
-            <p>冰箱效期白板</p>
+            <h1>囍座位規劃</h1>
+            <p>婚宴賓客工作台</p>
           </div>
         </div>
 
         <nav class="nav-list">
-          <button class="nav-item active" data-view="dashboard" type="button" aria-label="總覽">
+          <button class="nav-item active" data-view="seating" type="button">
             <span data-icon="layout"></span>
-            <span>總覽</span>
+            <span>座位圖</span>
           </button>
-          <button class="nav-item" data-view="inventory" type="button" aria-label="庫存">
-            <span data-icon="box"></span>
-            <span>庫存</span>
+          <button class="nav-item" data-view="guests" type="button">
+            <span data-icon="users"></span>
+            <span>賓客名單</span>
           </button>
-          <button class="nav-item" data-view="shopping" type="button" aria-label="購物">
-            <span data-icon="cart"></span>
-            <span>購物</span>
+          <button class="nav-item" data-view="invitations" type="button">
+            <span data-icon="mail"></span>
+            <span>喜帖管理</span>
           </button>
-          <button class="nav-item" data-view="history" type="button" aria-label="紀錄">
-            <span data-icon="clock"></span>
-            <span>紀錄</span>
+          <button class="nav-item" data-view="gifts" type="button">
+            <span data-icon="gift"></span>
+            <span>禮金紀錄</span>
+          </button>
+          <button class="nav-item" data-view="tables" type="button">
+            <span data-icon="table"></span>
+            <span>桌次管理</span>
           </button>
         </nav>
 
-        <div class="sidebar-note">
-          <p id="syncNote">資料目前儲存在這台裝置的瀏覽器內。</p>
+        <section class="event-card" aria-label="婚禮資訊">
+          <p>婚禮資訊</p>
+          <strong id="eventName">文定 & 婚宴</strong>
+          <span id="eventDate">2026/11/21 18:00</span>
+          <span id="eventVenue">台北文華東方酒店 3F 宴會廳</span>
+        </section>
+
+        <div class="account-card">
+          <span class="avatar">林</span>
+          <div>
+            <strong>林小美 & 陳大明</strong>
+            <span>本機自動保存</span>
+          </div>
         </div>
       </aside>
 
@@ -55,142 +65,288 @@
         <header class="topbar">
           <div>
             <p class="date-label" id="todayLabel"></p>
-            <h2 id="viewTitle">今天先吃什麼？</h2>
+            <h2 id="viewTitle">座位圖</h2>
           </div>
           <div class="topbar-actions">
-            <button class="secondary-action" id="authButton" type="button" aria-label="登入同步">
-              <span data-icon="cloud"></span>
-              <span id="authButtonText">登入同步</span>
+            <input id="importFile" type="file" accept=".csv,text/csv" hidden />
+            <button class="secondary-action" id="importButton" type="button">
+              <span data-icon="upload"></span>
+              <span>匯入名單</span>
             </button>
-            <button class="primary-action" id="addFoodButton" type="button" aria-label="新增食材">
+            <button class="secondary-action" id="templateButton" type="button">
+              <span data-icon="download"></span>
+              <span>下載樣板</span>
+            </button>
+            <button class="secondary-action" id="exportButton" type="button">
+              <span data-icon="archive"></span>
+              <span>匯出名單</span>
+            </button>
+            <button class="primary-action" id="addTableButton" type="button">
               <span data-icon="plus"></span>
-              <span>新增食材</span>
+              <span>新增桌次</span>
+            </button>
+            <button class="secondary-action" id="fill30TablesButton" type="button">
+              <span data-icon="table"></span>
+              <span>補到 30 桌</span>
+            </button>
+            <button class="primary-action soft" id="addGuestButton" type="button">
+              <span data-icon="userPlus"></span>
+              <span>新增賓客</span>
             </button>
           </div>
         </header>
 
-        <section class="view active" id="dashboardView" aria-labelledby="viewTitle">
-          <div class="metrics-grid" id="metricsGrid"></div>
-          <div class="content-grid">
-            <section class="panel priority-panel">
-              <div class="panel-header">
-                <div>
-                  <p class="section-kicker">優先處理</p>
-                  <h3>快到期清單</h3>
+        <section class="metrics-grid" id="metricsGrid" aria-label="婚宴摘要"></section>
+
+        <section class="view active" id="seatingView" aria-labelledby="viewTitle">
+          <div class="planner-layout">
+            <section class="workspace-panel">
+              <div class="workspace-toolbar">
+                <div class="segmented-control" aria-label="檢視模式">
+                  <button class="active" type="button">座位圖</button>
+                  <button data-view-jump="guests" type="button">清單檢視</button>
                 </div>
-                <button class="ghost-action" data-view-jump="inventory" type="button">看全部</button>
+                <div class="toolbar-cluster">
+                  <label class="select-field">
+                    <span>顯示</span>
+                    <select id="tableVisibilityFilter">
+                      <option value="all">全部桌次</option>
+                      <option value="open">尚有空位</option>
+                      <option value="over">超過容量</option>
+                    </select>
+                  </label>
+                  <div class="zoom-control" aria-label="場地縮放">
+                    <button class="icon-button" id="zoomOutButton" type="button" aria-label="縮小場地" title="縮小場地（⌘/Ctrl + -）">
+                      <span data-icon="minus"></span>
+                    </button>
+                    <input id="zoomRange" type="range" min="25" max="160" step="5" value="100" aria-label="場地縮放比例" title="觸控板雙指捏合，或按住 ⌘/Ctrl 捲動縮放" />
+                    <button class="icon-button" id="zoomInButton" type="button" aria-label="放大場地" title="放大場地（⌘/Ctrl + +）">
+                      <span data-icon="plus"></span>
+                    </button>
+                    <button class="mini-button zoom-reset" id="zoomResetButton" type="button" title="回到 100%（⌘/Ctrl + 0）">
+                      <span id="zoomValue">100%</span>
+                    </button>
+                  </div>
+                  <button class="icon-button" id="resetLayoutButton" type="button" aria-label="重整桌位" title="重整桌位">
+                    <span data-icon="refresh"></span>
+                  </button>
+                  <button class="secondary-action" id="fitCanvasButton" type="button" title="縮放並置中顯示所有桌子">
+                    <span data-icon="target"></span>
+                    <span>置中</span>
+                  </button>
+                </div>
               </div>
-              <div class="priority-list" id="priorityList"></div>
+
+              <div class="seating-canvas" id="seatingCanvas" aria-label="座位圖畫布"></div>
+
+              <div class="canvas-footer">
+                <label class="switch-row">
+                  <span>顯示姓名</span>
+                  <input id="showNamesToggle" type="checkbox" checked />
+                </label>
+                <div class="legend">
+                  <span><i class="dot confirmed"></i>已回覆</span>
+                  <span><i class="dot pending"></i>未回覆</span>
+                  <span><i class="dot declined"></i>不參加</span>
+                </div>
+                <span id="layoutSavedLabel">已保存</span>
+              </div>
             </section>
 
-            <section class="panel">
-              <div class="panel-header">
-                <div>
-                  <p class="section-kicker">冰箱分布</p>
-                  <h3>存放位置</h3>
+            <aside class="right-rail">
+              <section class="rail-panel unassigned-panel" id="unassignedDropZone">
+                <div class="panel-header">
+                  <div>
+                    <h3>待安排賓客</h3>
+                    <p id="unassignedCount">0 位</p>
+                  </div>
+                  <button class="icon-button" id="focusUnassignedButton" type="button" aria-label="查看未安排" title="查看未安排">
+                    <span data-icon="target"></span>
+                  </button>
                 </div>
-              </div>
-              <div class="location-list" id="locationList"></div>
-            </section>
+                <label class="search-field">
+                  <span data-icon="search"></span>
+                  <input id="unassignedSearchInput" type="search" placeholder="搜尋姓名、電話或標籤" />
+                </label>
+                <div class="guest-stack" id="unassignedList"></div>
+              </section>
+
+              <section class="rail-panel">
+                <div class="panel-header">
+                  <div>
+                    <h3>禮金紀錄</h3>
+                    <p id="giftSummary">NT$ 0</p>
+                  </div>
+                  <button class="icon-button" id="addGiftButton" type="button" aria-label="新增禮金" title="新增禮金">
+                    <span data-icon="plus"></span>
+                  </button>
+                </div>
+                <div class="gift-mini-list" id="giftMiniList"></div>
+              </section>
+            </aside>
           </div>
         </section>
 
-        <section class="view" id="inventoryView" aria-label="庫存">
-          <div class="toolbar">
+        <section class="view" id="guestsView" aria-label="賓客名單">
+          <div class="list-toolbar">
             <label class="search-field">
               <span data-icon="search"></span>
-              <input id="searchInput" type="search" placeholder="搜尋食材、備註或位置" />
+              <input id="guestSearchInput" type="search" placeholder="搜尋姓名、電話、標籤或備註" />
             </label>
-            <select id="categoryFilter" aria-label="分類篩選"></select>
-            <select id="locationFilter" aria-label="位置篩選"></select>
-            <select id="statusFilter" aria-label="效期篩選">
-              <option value="all">全部狀態</option>
-              <option value="expired">已過期</option>
-              <option value="today">今天到期</option>
-              <option value="soon">3 天內</option>
-              <option value="week">7 天內</option>
-              <option value="safe">安全</option>
+            <select id="rsvpFilter" aria-label="回覆狀態">
+              <option value="all">全部回覆</option>
+              <option value="confirmed">已回覆</option>
+              <option value="pending">未回覆</option>
+              <option value="declined">不參加</option>
             </select>
-            <button class="secondary-action toolbar-button" id="addLocationButton" type="button">
+            <select id="assignmentFilter" aria-label="座位狀態">
+              <option value="all">全部座位</option>
+              <option value="assigned">已安排</option>
+              <option value="unassigned">未安排</option>
+            </select>
+            <select id="relationFilter" aria-label="關係">
+              <option value="all">全部關係</option>
+              <option value="男方親友">男方親友</option>
+              <option value="女方親友">女方親友</option>
+            </select>
+          </div>
+          <div class="data-table" id="guestTable"></div>
+        </section>
+
+        <section class="view" id="invitationsView" aria-label="喜帖管理">
+          <div class="list-toolbar">
+            <label class="search-field">
+              <span data-icon="search"></span>
+              <input id="invitationSearchInput" type="search" placeholder="搜尋姓名、電話、地址或 email" />
+            </label>
+            <select id="invitationTypeFilter" aria-label="喜帖類型">
+              <option value="all">全部喜帖</option>
+              <option value="paper">紙本</option>
+              <option value="digital">電子</option>
+            </select>
+            <select id="invitationDeliveryFilter" aria-label="寄送狀態">
+              <option value="all">全部寄送狀態</option>
+              <option value="sent">已寄送</option>
+              <option value="unsent">未寄送</option>
+            </select>
+          </div>
+          <div class="data-table" id="invitationTable"></div>
+        </section>
+
+        <section class="view" id="giftsView" aria-label="禮金紀錄">
+          <div class="list-toolbar">
+            <label class="search-field">
+              <span data-icon="search"></span>
+              <input id="giftSearchInput" type="search" placeholder="搜尋姓名、方式或備註" />
+            </label>
+            <select id="giftMethodFilter" aria-label="禮金方式">
+              <option value="all">全部方式</option>
+              <option value="現金">現金</option>
+              <option value="轉帳">轉帳</option>
+              <option value="支票">支票</option>
+              <option value="其他">其他</option>
+            </select>
+            <button class="primary-action" id="addGiftFromViewButton" type="button">
               <span data-icon="plus"></span>
-              <span>新增位置</span>
+              <span>新增紀錄</span>
             </button>
           </div>
-          <div class="inventory-list" id="inventoryList"></div>
+          <div class="data-table" id="giftTable"></div>
         </section>
 
-        <section class="view" id="shoppingView" aria-label="購物清單">
-          <form class="inline-form" id="shoppingForm">
-            <input name="name" type="text" placeholder="想買什麼？" required />
-            <input name="quantity" type="text" placeholder="數量" />
-            <button type="submit">加入</button>
-          </form>
-          <div class="shopping-list" id="shoppingList"></div>
-        </section>
-
-        <section class="view" id="historyView" aria-label="歷史紀錄">
-          <div class="history-list" id="historyList"></div>
+        <section class="view" id="tablesView" aria-label="桌次管理">
+          <div class="table-manager" id="tableManager"></div>
         </section>
       </main>
     </div>
 
-    <dialog class="item-dialog" id="itemDialog">
-      <form method="dialog" class="item-form" id="itemForm">
+    <dialog class="app-dialog" id="guestDialog">
+      <form class="dialog-form" id="guestForm" method="dialog">
         <div class="dialog-header">
           <div>
-            <p class="section-kicker">食材資料</p>
-            <h3 id="dialogTitle">新增食材</h3>
+            <p>賓客資料</p>
+            <h3 id="guestDialogTitle">新增賓客</h3>
           </div>
-          <button class="icon-button" id="closeDialogButton" value="cancel" type="button" aria-label="關閉">
+          <button class="icon-button" id="closeGuestDialogButton" type="button" aria-label="關閉">
             <span data-icon="x"></span>
           </button>
         </div>
-
-        <input type="hidden" name="id" />
+        <input name="id" type="hidden" />
         <div class="form-grid">
           <label>
-            名稱
-            <input name="name" type="text" placeholder="牛奶" required />
+            姓名
+            <input name="name" type="text" placeholder="王建國" required />
           </label>
           <label>
-            分類
-            <select name="category" required>
-              <option>飲料</option>
-              <option>蔬菜</option>
-              <option>水果</option>
-              <option>肉類</option>
-              <option>海鮮</option>
-              <option>蛋奶</option>
-              <option>冷凍食品</option>
-              <option>調味料</option>
-              <option>熟食</option>
-              <option>其他</option>
+            回覆狀態
+            <select name="rsvp" required>
+              <option value="confirmed">已回覆</option>
+              <option value="pending">未回覆</option>
+              <option value="declined">不參加</option>
             </select>
           </label>
           <label>
-            數量
-            <input name="quantity" type="text" placeholder="1 瓶" required />
+            同行人數
+            <input name="companions" type="number" min="0" step="1" value="0" />
           </label>
           <label>
-            位置
-            <select name="storageLocation" required></select>
+            關係
+            <select name="relation" required>
+              <option value="男方親友">男方親友</option>
+              <option value="女方親友">女方親友</option>
+            </select>
           </label>
           <label>
-            購買日期
-            <input name="purchaseDate" type="date" />
+            兒童座椅數量
+            <input name="childSeats" type="number" min="0" step="1" value="0" />
           </label>
           <label>
-            到期日期
-            <input name="expiryDate" type="date" required />
+            素食人數
+            <input name="vegetarianCount" type="number" min="0" step="1" value="0" />
+          </label>
+          <label>
+            關係標籤
+            <input name="group" type="text" placeholder="同事、親友、朋友" />
+          </label>
+          <label>
+            電話
+            <input name="phone" type="tel" placeholder="0912-345-678" />
+          </label>
+          <label>
+            喜帖
+            <select name="invitationType">
+              <option value="none">無</option>
+              <option value="paper">紙本</option>
+              <option value="digital">電子</option>
+            </select>
+          </label>
+          <label>
+            寄送完成
+            <select name="invitationDelivery">
+              <option value="unsent">未寄送</option>
+              <option value="sent">已寄送</option>
+            </select>
+          </label>
+          <label>
+            地址
+            <input name="address" type="text" placeholder="紙本喜帖寄送地址" />
+          </label>
+          <label>
+            Email
+            <input name="email" type="email" placeholder="電子喜帖收件 email" />
+          </label>
+          <label>
+            桌次
+            <select name="tableId"></select>
           </label>
           <label class="full-field">
             備註
-            <textarea name="note" rows="3" placeholder="已開封、週末要煮、特價購入"></textarea>
+            <textarea name="note" rows="3" placeholder="素食、需兒童椅、長輩同行"></textarea>
           </label>
         </div>
-
         <div class="dialog-actions">
-          <button class="secondary-action" id="cancelFormButton" type="button">取消</button>
+          <button class="danger-action ghost-danger" id="deleteGuestButton" type="button">刪除</button>
+          <button class="secondary-action" id="cancelGuestButton" type="button">取消</button>
           <button class="primary-action" type="submit">
             <span data-icon="check"></span>
             <span>儲存</span>
@@ -199,107 +355,107 @@
       </form>
     </dialog>
 
-    <dialog class="item-dialog compact-dialog" id="quantityDialog">
-      <form method="dialog" class="item-form" id="quantityForm">
+    <dialog class="app-dialog compact-dialog" id="tableDialog">
+      <form class="dialog-form" id="tableForm" method="dialog">
         <div class="dialog-header">
           <div>
-            <p class="section-kicker">快速更新</p>
-            <h3 id="quantityTitle">調整數量</h3>
+            <p>桌次資料</p>
+            <h3 id="tableDialogTitle">新增桌次</h3>
           </div>
-          <button class="icon-button" id="closeQuantityButton" type="button" aria-label="關閉">
+          <button class="icon-button" id="closeTableDialogButton" type="button" aria-label="關閉">
             <span data-icon="x"></span>
           </button>
         </div>
-        <input type="hidden" name="id" />
-        <label class="single-field">
-          目前數量
-          <input name="quantity" type="text" required />
-        </label>
-        <div class="dialog-actions">
-          <button class="secondary-action" id="cancelQuantityButton" type="button">取消</button>
-          <button class="primary-action" type="submit">
-            <span data-icon="check"></span>
-            <span>更新</span>
-          </button>
-        </div>
-      </form>
-    </dialog>
-
-    <dialog class="item-dialog compact-dialog" id="locationDialog">
-      <form method="dialog" class="item-form" id="locationForm">
-        <div class="dialog-header">
-          <div>
-            <p class="section-kicker">位置管理</p>
-            <h3>新增存放位置</h3>
-          </div>
-          <button class="icon-button" id="closeLocationButton" type="button" aria-label="關閉">
-            <span data-icon="x"></span>
-          </button>
-        </div>
-        <div class="form-grid">
+        <input name="id" type="hidden" />
+        <div class="form-grid one-column">
           <label>
-            位置名稱
-            <input name="name" type="text" placeholder="例如：冷藏蔬果抽屜" required />
+            桌號
+            <input name="number" type="text" placeholder="9、A1、主桌" required />
+          </label>
+          <label>
+            桌次別名
+            <input name="alias" type="text" placeholder="女方朋友、男方同事" />
+          </label>
+          <label>
+            容量
+            <input name="capacity" type="number" min="1" step="1" value="10" required />
           </label>
           <label>
             類型
-            <select name="group" required>
-              <option value="fridge">冷藏</option>
-              <option value="freezer">冷凍庫</option>
-              <option value="pantry">常溫櫃</option>
+            <select name="kind">
+              <option value="round">一般桌</option>
+              <option value="head">主桌</option>
+              <option value="family">親友桌</option>
             </select>
           </label>
         </div>
         <div class="dialog-actions">
-          <button class="secondary-action" id="cancelLocationButton" type="button">取消</button>
+          <button class="secondary-action" id="cancelTableButton" type="button">取消</button>
           <button class="primary-action" type="submit">
             <span data-icon="check"></span>
-            <span>新增</span>
+            <span>儲存</span>
           </button>
         </div>
       </form>
     </dialog>
 
-    <dialog class="item-dialog compact-dialog" id="authDialog">
-      <form method="dialog" class="item-form" id="authForm">
+    <dialog class="app-dialog compact-dialog" id="giftDialog">
+      <form class="dialog-form" id="giftForm" method="dialog">
         <div class="dialog-header">
           <div>
-            <p class="section-kicker">雲端同步</p>
-            <h3>登入 FreshBoard</h3>
+            <p>禮金資料</p>
+            <h3 id="giftDialogTitle">新增禮金</h3>
           </div>
-          <button class="icon-button" id="closeAuthButton" type="button" aria-label="關閉">
+          <button class="icon-button" id="closeGiftDialogButton" type="button" aria-label="關閉">
             <span data-icon="x"></span>
           </button>
         </div>
-        <p class="auth-status" id="authStatus">登入後，這台裝置的資料會同步到 Supabase。</p>
-        <div class="form-grid">
+        <input name="id" type="hidden" />
+        <div class="form-grid one-column">
           <label>
-            Email
-            <input name="email" type="email" autocomplete="email" placeholder="you@example.com" required />
+            賓客
+            <select name="guestId"></select>
           </label>
           <label>
-            密碼
-            <input name="password" type="password" autocomplete="current-password" placeholder="至少 6 個字元" required />
+            登記姓名
+            <input name="name" type="text" placeholder="王建國" required />
+          </label>
+          <label>
+            金額
+            <input name="amount" type="number" min="0" step="100" placeholder="3600" required />
+          </label>
+          <label>
+            方式
+            <select name="method">
+              <option>現金</option>
+              <option>轉帳</option>
+              <option>支票</option>
+              <option>其他</option>
+            </select>
+          </label>
+          <label>
+            備註
+            <textarea name="note" rows="3" placeholder="第 1 桌、代包、收禮人"></textarea>
           </label>
         </div>
-        <div class="dialog-actions auth-actions">
-          <button class="secondary-action" id="signOutButton" type="button">登出</button>
-          <button class="secondary-action" name="authMode" value="signUp" type="submit">建立帳號</button>
-          <button class="primary-action" name="authMode" value="signIn" type="submit">
+        <div class="dialog-actions">
+          <button class="danger-action ghost-danger" id="deleteGiftButton" type="button">刪除</button>
+          <button class="secondary-action" id="cancelGiftButton" type="button">取消</button>
+          <button class="primary-action" type="submit">
             <span data-icon="check"></span>
-            <span>登入</span>
+            <span>儲存</span>
           </button>
         </div>
       </form>
     </dialog>
 
     <dialog class="confirm-dialog" id="confirmDialog">
-      <form method="dialog" class="confirm-form" id="confirmForm">
+      <form class="confirm-form" id="confirmForm" method="dialog">
         <div class="confirm-icon" id="confirmIcon" aria-hidden="true"></div>
         <div>
-          <p class="section-kicker" id="confirmKicker">確認動作</p>
-          <h3 id="confirmTitle">確定要更新狀態？</h3>
-          <p id="confirmMessage"></p>
+          <p id="confirmKicker">確認動作</p>
+          <h3 id="confirmTitle">確定要更新？</h3>
+          <span id="confirmMessage"></span>
         </div>
         <div class="dialog-actions">
           <button class="secondary-action" id="cancelConfirmButton" type="button">取消</button>
@@ -310,7 +466,6 @@
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="./app.js?v=supabase-sync"></script>
+    <script src="./app.js?v=wedding-planner-13"></script>
   </body>
 </html>

@@ -1,44 +1,39 @@
-# FreshBoard
+# 囍座位規劃
 
-FreshBoard is a local-first fridge inventory prototype for tracking food, drinks, expiry dates, shopping items, and usage history.
+本機優先的婚禮賓客座位管理工具，可用來規劃桌次、拖拉安排賓客、匯入名單、追蹤 RSVP 與登記禮金。
 
-## Run
+## 使用方式
 
-Open `index.html` directly in a browser, or run a local static server:
+直接用瀏覽器開啟 `index.html`，或啟動靜態伺服器：
 
 ```bash
 python3 -m http.server 4174 --bind 127.0.0.1
 ```
 
-Then visit:
+再開啟：
 
 ```text
 http://127.0.0.1:4174/
 ```
 
-## Current Prototype
+## 功能
 
-- Dashboard with expired, today, soon, and total inventory counts
-- Food inventory with expiry status, search, category filter, and expiry filter
-- Position-based inventory board for fridge, freezer, and pantry
-- Position filter and custom storage locations
-- Add and edit food items
-- Quick quantity adjustment without opening the full edit form
-- Mark food as used or discarded
-- Confirmation dialogs for destructive or inventory-removing actions
-- Shopping list with checked state and quick conversion to a food item
-- Add active or historical food items back to the shopping list
-- History view for used and discarded items
-- Restore historical food items back into inventory
-- Browser `localStorage` persistence
-- PWA manifest and service worker for home-screen install/offline shell
-- Supabase email/password authentication
-- Supabase remote sync with local-first fallback
-- Responsive layout for desktop and mobile
+- 桌次與容量管理
+- 自訂桌號與桌次別名，例如女方朋友、男方同事
+- 座位圖拖拉安排賓客
+- 拖移桌子調整座位圖相對位置
+- 場地 Canvas 可放大縮小，桌數多時可搭配滾動查看
+- 座位圖固定填滿目前視窗，不需要靠整頁高度捲動
+- 一鍵置中縮放，快速看到所有桌子
+- 快速補到 30 桌並自動排列，適合中大型婚宴先建立桌次
+- 舞台與禮金台可拖移調整位置
+- 賓客 RSVP、同行人數、電話、標籤與備註
+- CSV 名單樣板下載與匯入
+- 匯出含賓客姓名、桌號與桌次別名的 CSV 名單
+- 禮金金額、方式與備註紀錄
+- 瀏覽器 `localStorage` 自動保存
+- PWA 離線殼層
 
-## Next Steps
+## 匯入樣板欄位
 
-- Run `supabase-schema.sql` in Supabase SQL Editor if the tables are not created yet
-- Add family sharing
-- Add reminder notifications
-- Add import/export backup
+`姓名, 回覆狀態, 同行人數, 關係標籤, 電話, 桌號, 桌次別名, 備註, 禮金金額, 禮金方式, 禮金備註`
