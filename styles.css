@@ -291,6 +291,36 @@ button > span {
   gap: 9px;
 }
 
+.backup-actions {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.backup-actions .secondary-action {
+  min-height: 34px;
+  padding: 0 10px;
+  background: var(--surface);
+}
+
+.backup-status,
+.cloud-status {
+  padding: 0 7px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.cloud-status.connected {
+  color: var(--sage-deep);
+}
+
 .primary-action,
 .secondary-action,
 .danger-action,
@@ -319,10 +349,22 @@ button > span {
   border: 1px solid var(--line);
 }
 
+.secondary-action.active-lock {
+  color: var(--sage-deep);
+  border-color: #badbc9;
+  background: #eaf6ef;
+}
+
 .icon-only,
 .icon-button {
   width: 40px;
   padding: 0;
+}
+
+.icon-button.danger-icon {
+  color: var(--red);
+  background: #fff5f5;
+  border-color: #f0c8c6;
 }
 
 .metrics-grid {
@@ -395,7 +437,9 @@ button > span {
 }
 
 #guestsView.view.active,
-#invitationsView.view.active {
+#invitationsView.view.active,
+#giftsView.view.active,
+#tablesView.view.active {
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -554,6 +598,14 @@ button > span {
   box-shadow: 0 18px 38px rgba(35, 39, 36, 0.15);
 }
 
+.venue-marker.locked-layout {
+  cursor: default;
+}
+
+.venue-marker.locked-layout .venue-grip {
+  color: var(--sage-deep);
+}
+
 .stage-marker {
   color: var(--plum);
   background: #fff8fb;
@@ -613,6 +665,17 @@ button > span {
   z-index: 8;
   cursor: grabbing;
   box-shadow: 0 18px 38px rgba(35, 39, 36, 0.15);
+}
+
+.seating-canvas.layout-locked .seat-table {
+  cursor: default;
+}
+
+.seat-table.locked-layout .move-handle {
+  color: var(--sage-deep);
+  border-color: #badbc9;
+  background: #eaf6ef;
+  cursor: default;
 }
 
 .table-card-header {
@@ -930,10 +993,18 @@ button > span {
 }
 
 .right-rail {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 12px;
   min-height: 0;
   overflow: auto;
+}
+
+.unassigned-panel {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .rail-panel {
@@ -979,8 +1050,9 @@ button > span {
 
 .guest-stack {
   display: grid;
+  flex: 1 1 auto;
   gap: 8px;
-  max-height: 344px;
+  min-height: 0;
   margin-top: 10px;
   overflow: auto;
   padding-right: 2px;
@@ -1050,9 +1122,11 @@ button > span {
 
 .status-badge,
 .group-badge,
-.money-badge {
+.money-badge,
+.invitation-status-badge {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   min-height: 24px;
   padding: 0 8px;
   border-radius: 999px;
@@ -1086,11 +1160,128 @@ button > span {
   background: #f1e8ef;
 }
 
+.invitation-status-badge.sent {
+  color: var(--sage-deep);
+  background: #e1f3e7;
+}
+
+.invitation-status-badge.ready {
+  color: #7a5414;
+  background: #fff4d8;
+}
+
+.invitation-status-badge.missing {
+  color: #8b302c;
+  background: var(--rose-soft);
+}
+
+.invitation-status-badge.none {
+  color: #687274;
+  background: #f3f5f4;
+}
+
 .gift-mini-list {
   display: grid;
   gap: 8px;
   max-height: 294px;
   overflow: auto;
+}
+
+.day-mode-panel {
+  flex: 0 0 auto;
+  margin-bottom: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, #fffdf9, var(--surface));
+  box-shadow: 0 7px 22px rgba(30, 36, 32, 0.05);
+}
+
+.day-mode-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.day-mode-header p,
+.day-mode-header h3,
+.quick-gift-hint {
+  margin: 0;
+}
+
+.day-mode-header p {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.day-mode-header h3 {
+  margin-top: 3px;
+  font-size: 18px;
+  line-height: 1.15;
+}
+
+#quickGiftStatus {
+  color: var(--sage-deep);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.quick-gift-form {
+  display: grid;
+  grid-template-columns: minmax(190px, 1.25fr) 120px minmax(220px, 1.4fr) 112px minmax(160px, 1fr) auto;
+  gap: 8px;
+  align-items: end;
+}
+
+.quick-gift-form label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.quick-gift-form input,
+.quick-gift-form select {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  outline: none;
+  padding: 0 10px;
+}
+
+.quick-amounts {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.quick-amounts button {
+  min-height: 34px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--sage-deep);
+  background: #eef8f1;
+  font-weight: 900;
+}
+
+.quick-gift-hint {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.quick-gift-hint.warning {
+  color: #8b481c;
 }
 
 .list-toolbar {
@@ -1118,7 +1309,8 @@ button > span {
 }
 
 #guestTable,
-#invitationTable {
+#invitationTable,
+#giftTable {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
@@ -1146,11 +1338,18 @@ button > span {
 }
 
 .table-row.header {
+  align-items: stretch;
   min-height: 44px;
   color: var(--muted);
   background: var(--surface-2);
   font-size: 12px;
   font-weight: 950;
+}
+
+.table-row.header > * {
+  display: flex;
+  align-items: center;
+  min-height: 24px;
 }
 
 .table-row strong,
@@ -1165,17 +1364,18 @@ button > span {
 }
 
 .table-row.gift-table {
-  grid-template-columns: minmax(170px, 1fr) 140px 110px 120px minmax(150px, 1fr) auto;
+  grid-template-columns: minmax(170px, 1fr) 140px 110px 120px minmax(150px, 1fr) 90px;
+  min-width: 820px;
 }
 
 .table-row.guest-table {
-  grid-template-columns: minmax(170px, 1.25fr) 118px 104px 126px 88px 82px 76px minmax(145px, 1fr) minmax(180px, 1fr) 48px;
-  min-width: 1280px;
+  grid-template-columns: minmax(190px, 1.25fr) 120px 112px 132px 96px 88px 86px 82px minmax(150px, 1fr) minmax(210px, 1.1fr) 96px;
+  min-width: 1482px;
 }
 
 .table-row.invitation-table {
-  grid-template-columns: minmax(170px, 1.1fr) 92px 110px minmax(220px, 1.15fr) minmax(190px, 1fr) 112px 120px minmax(170px, 1fr);
-  min-width: 1230px;
+  grid-template-columns: minmax(170px, 1.05fr) 92px 112px 110px minmax(220px, 1.15fr) minmax(190px, 1fr) 112px 120px minmax(170px, 1fr);
+  min-width: 1360px;
 }
 
 .cell-center {
@@ -1183,6 +1383,104 @@ button > span {
   align-items: center;
   justify-content: center;
   text-align: center;
+}
+
+.cell-left {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  text-align: left;
+}
+
+.cell-actions {
+  justify-content: center;
+  text-align: center;
+}
+
+.table-row.guest-table > .cell-center,
+.table-row.guest-table > .cell-left,
+.table-row.guest-table > .guest-name-cell,
+.table-row.guest-table > .row-actions {
+  align-self: stretch;
+  min-height: 36px;
+}
+
+.guest-name-button {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  flex-direction: column;
+  gap: 5px;
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.guest-name-cell {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.guest-name-button:hover .guest-name-text {
+  color: var(--sage);
+}
+
+.guest-name-text,
+.guest-phone-text,
+.note-preview,
+.table-label-cell {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.guest-name-text,
+.guest-phone-text {
+  display: block;
+  width: 100%;
+  text-align: left;
+}
+
+.guest-name-text {
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 950;
+  line-height: 1.18;
+}
+
+.guest-phone-text {
+  color: var(--muted);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.note-preview {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.table-row.guest-table > .row-actions,
+.table-row.guest-table.header > .cell-actions {
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  justify-content: center;
+  background: var(--surface);
+  box-shadow: -10px 0 16px rgba(248, 249, 247, 0.88);
+}
+
+.table-row.guest-table.header > .cell-actions {
+  z-index: 3;
+  background: var(--surface-2);
 }
 
 .inline-field {
@@ -1322,7 +1620,12 @@ button > span {
 .table-manager {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-content: start;
   gap: 12px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 4px;
 }
 
 .table-card {
@@ -1382,6 +1685,45 @@ button > span {
   text-align: center;
   font-size: 14px;
   font-weight: 850;
+}
+
+.snapshot-list {
+  display: grid;
+  gap: 9px;
+}
+
+.snapshot-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.snapshot-item div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.snapshot-item strong,
+.snapshot-item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.snapshot-item strong {
+  font-size: 14px;
+}
+
+.snapshot-item span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .app-dialog,
@@ -1451,6 +1793,24 @@ button > span {
   font-weight: 900;
 }
 
+.form-grid .checkbox-field {
+  display: flex;
+  align-items: center;
+  align-self: end;
+  gap: 9px;
+  min-height: 42px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.form-grid .checkbox-field input {
+  width: auto;
+  min-height: 0;
+  accent-color: var(--sage);
+}
+
 .form-grid input,
 .form-grid select,
 .form-grid textarea {
@@ -1481,6 +1841,10 @@ button > span {
   justify-content: flex-end;
   gap: 9px;
   margin-top: 18px;
+}
+
+.dialog-actions.split-actions {
+  flex-wrap: wrap;
 }
 
 .danger-action {
@@ -1515,6 +1879,18 @@ button > span {
   margin-top: 8px;
   color: var(--muted);
   line-height: 1.5;
+}
+
+.cloud-sync-message {
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--muted);
+  background: var(--surface-2);
+  font-size: 13px;
+  font-weight: 850;
+  line-height: 1.45;
 }
 
 .toast {
@@ -1602,6 +1978,19 @@ button > span {
 
   .topbar-actions {
     justify-content: flex-start;
+  }
+
+  .backup-actions,
+  .quick-gift-form {
+    width: 100%;
+  }
+
+  .quick-gift-form {
+    grid-template-columns: 1fr;
+  }
+
+  .quick-amounts {
+    align-items: stretch;
   }
 
   .metrics-grid,

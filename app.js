@@ -17,7 +17,14 @@ const STAGE_WIDTH = TABLE_CARD_WIDTH * 2;
 const STAGE_DEPTH = Math.round(TABLE_CARD_DEPTH * 0.5);
 const GIFT_DESK_WIDTH = Math.round(TABLE_CARD_WIDTH * 0.5);
 const GIFT_DESK_DEPTH = Math.round(TABLE_CARD_DEPTH * 0.5);
-const GUEST_PAGE_SIZE = 10;
+const BACKUP_VERSION = 1;
+const SNAPSHOT_KEY = "wedding.seating.snapshots.v1";
+const CLOUD_SYNC_CONFIG_KEY = "wedding.seating.cloudSync.v1";
+const AUTO_SNAPSHOT_INTERVAL_MS = 2 * 60 * 1000;
+const MAX_AUTO_SNAPSHOTS = 8;
+const LAYOUT_HISTORY_LIMIT = 30;
+const CLOUD_SYNC_DEBOUNCE_MS = 1800;
+const CLOUD_SYNC_POLL_MS = 30000;
 const RELATION_OPTIONS = ["男方親友", "女方親友"];
 const invitationMeta = {
   paper: { label: "紙本", className: "paper" },
@@ -27,6 +34,12 @@ const invitationMeta = {
 const invitationDeliveryMeta = {
   sent: { label: "已寄送", className: "sent" },
   unsent: { label: "未寄送", className: "unsent" },
+};
+const invitationStatusMeta = {
+  missing: { label: "待補資料", className: "missing", hint: "紙本需地址，電子需 Email" },
+  ready: { label: "待寄送", className: "ready", hint: "資料已齊，尚未寄送" },
+  sent: { label: "已寄送", className: "sent", hint: "喜帖寄送完成" },
+  none: { label: "不需喜帖", className: "none", hint: "此賓客不列入寄送待辦" },
 };
 
 const icons = {
@@ -41,7 +54,12 @@ const icons = {
   minus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M5 12h14"/></svg>',
   userPlus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M15 20a5 5 0 0 0-10 0"/><circle cx="10" cy="9" r="4"/><path d="M19 8v6M16 11h6"/></svg>',
   refresh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 12a8 8 0 0 1-13.7 5.6"/><path d="M4 12A8 8 0 0 1 17.7 6.4"/><path d="M17 3v4h4M7 21v-4H3"/></svg>',
+  undo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-2"/></svg>',
+  redo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m15 14 5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h2"/></svg>',
+  lock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>',
+  unlock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 7.3-2.2"/></svg>',
   target: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>',
+  alignHorizontal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 6h16M4 18h16"/><rect x="6" y="9" width="5" height="6" rx="1.2"/><rect x="13" y="9" width="5" height="6" rx="1.2"/></svg>',
   search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.2-3.2"/></svg>',
   x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M6 6l12 12M18 6 6 18"/></svg>',
   check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m5 12 4.2 4.2L19 6.5"/></svg>',
@@ -51,6 +69,7 @@ const icons = {
   cash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M6 9v.01M18 15v.01"/></svg>',
   stage: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 5h16v10H4z"/><path d="M8 19h8M12 15v4"/><path d="M7 9h10"/></svg>',
   mail: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m4 7 8 6 8-6"/></svg>',
+  cloud: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17.5 19H8a5 5 0 1 1 1.3-9.8A6 6 0 0 1 21 11.5 3.8 3.8 0 0 1 17.5 19Z"/><path d="M12 12v5M9.5 14.5 12 12l2.5 2.5"/></svg>',
 };
 
 const rsvpMeta = {
@@ -63,6 +82,12 @@ const seedState = {
   canvas: {
     zoom: 1,
     coordinateMode: "px",
+    layoutLocked: false,
+  },
+  meta: {
+    updatedAt: "",
+    lastBackupAt: "",
+    lastRestoredAt: "",
   },
   wedding: {
     name: "文定 & 婚宴",
@@ -117,7 +142,14 @@ let movingLayoutItem = null;
 let suppressTableClickId = null;
 let activeGuestDrag = null;
 let suppressGuestClickId = null;
-let guestTablePage = 1;
+let layoutUndoStack = [];
+let layoutRedoStack = [];
+let isRestoringHistory = false;
+let cloudSyncConfig = loadCloudSyncConfig();
+let cloudSyncTimer = null;
+let cloudSyncPollTimer = null;
+let cloudSyncBusy = false;
+let cloudSyncLastMessage = "";
 const guestInlineEditTimers = new Map();
 
 const els = {
@@ -137,6 +169,7 @@ const els = {
   zoomRange: document.querySelector("#zoomRange"),
   zoomValue: document.querySelector("#zoomValue"),
   fitCanvasButton: document.querySelector("#fitCanvasButton"),
+  alignTablesButton: document.querySelector("#alignTablesButton"),
   resetLayoutButton: document.querySelector("#resetLayoutButton"),
   showNamesToggle: document.querySelector("#showNamesToggle"),
   layoutSavedLabel: document.querySelector("#layoutSavedLabel"),
@@ -145,8 +178,6 @@ const els = {
   unassignedList: document.querySelector("#unassignedList"),
   unassignedCount: document.querySelector("#unassignedCount"),
   focusUnassignedButton: document.querySelector("#focusUnassignedButton"),
-  giftSummary: document.querySelector("#giftSummary"),
-  giftMiniList: document.querySelector("#giftMiniList"),
   guestSearchInput: document.querySelector("#guestSearchInput"),
   rsvpFilter: document.querySelector("#rsvpFilter"),
   assignmentFilter: document.querySelector("#assignmentFilter"),
@@ -154,7 +185,7 @@ const els = {
   guestTable: document.querySelector("#guestTable"),
   invitationSearchInput: document.querySelector("#invitationSearchInput"),
   invitationTypeFilter: document.querySelector("#invitationTypeFilter"),
-  invitationDeliveryFilter: document.querySelector("#invitationDeliveryFilter"),
+  invitationStatusFilter: document.querySelector("#invitationStatusFilter"),
   invitationTable: document.querySelector("#invitationTable"),
   giftSearchInput: document.querySelector("#giftSearchInput"),
   giftMethodFilter: document.querySelector("#giftMethodFilter"),
@@ -164,11 +195,20 @@ const els = {
   importFile: document.querySelector("#importFile"),
   templateButton: document.querySelector("#templateButton"),
   exportButton: document.querySelector("#exportButton"),
+  backupButton: document.querySelector("#backupButton"),
+  restoreButton: document.querySelector("#restoreButton"),
+  restoreFile: document.querySelector("#restoreFile"),
+  snapshotButton: document.querySelector("#snapshotButton"),
+  backupStatus: document.querySelector("#backupStatus"),
+  cloudSyncButton: document.querySelector("#cloudSyncButton"),
+  cloudSyncStatus: document.querySelector("#cloudSyncStatus"),
   addTableButton: document.querySelector("#addTableButton"),
   fill30TablesButton: document.querySelector("#fill30TablesButton"),
   addGuestButton: document.querySelector("#addGuestButton"),
-  addGiftButton: document.querySelector("#addGiftButton"),
   addGiftFromViewButton: document.querySelector("#addGiftFromViewButton"),
+  lockLayoutButton: document.querySelector("#lockLayoutButton"),
+  undoLayoutButton: document.querySelector("#undoLayoutButton"),
+  redoLayoutButton: document.querySelector("#redoLayoutButton"),
   guestDialog: document.querySelector("#guestDialog"),
   guestForm: document.querySelector("#guestForm"),
   guestDialogTitle: document.querySelector("#guestDialogTitle"),
@@ -186,6 +226,15 @@ const els = {
   closeGiftDialogButton: document.querySelector("#closeGiftDialogButton"),
   cancelGiftButton: document.querySelector("#cancelGiftButton"),
   deleteGiftButton: document.querySelector("#deleteGiftButton"),
+  quickGiftForm: document.querySelector("#quickGiftForm"),
+  quickGiftNameInput: document.querySelector("#quickGiftNameInput"),
+  quickGiftOptions: document.querySelector("#quickGiftOptions"),
+  quickGiftAmountInput: document.querySelector("#quickGiftAmountInput"),
+  quickGiftMethodInput: document.querySelector("#quickGiftMethodInput"),
+  quickGiftNoteInput: document.querySelector("#quickGiftNoteInput"),
+  quickGiftHint: document.querySelector("#quickGiftHint"),
+  quickGiftStatus: document.querySelector("#quickGiftStatus"),
+  quickAmountButtons: document.querySelectorAll("[data-quick-amount]"),
   confirmDialog: document.querySelector("#confirmDialog"),
   confirmForm: document.querySelector("#confirmForm"),
   confirmIcon: document.querySelector("#confirmIcon"),
@@ -194,6 +243,17 @@ const els = {
   confirmMessage: document.querySelector("#confirmMessage"),
   confirmActionButton: document.querySelector("#confirmActionButton"),
   cancelConfirmButton: document.querySelector("#cancelConfirmButton"),
+  snapshotDialog: document.querySelector("#snapshotDialog"),
+  snapshotList: document.querySelector("#snapshotList"),
+  closeSnapshotDialogButton: document.querySelector("#closeSnapshotDialogButton"),
+  cancelSnapshotButton: document.querySelector("#cancelSnapshotButton"),
+  cloudSyncDialog: document.querySelector("#cloudSyncDialog"),
+  cloudSyncForm: document.querySelector("#cloudSyncForm"),
+  closeCloudSyncDialogButton: document.querySelector("#closeCloudSyncDialogButton"),
+  cloudSyncMessage: document.querySelector("#cloudSyncMessage"),
+  clearCloudSyncButton: document.querySelector("#clearCloudSyncButton"),
+  pullCloudButton: document.querySelector("#pullCloudButton"),
+  pushCloudButton: document.querySelector("#pushCloudButton"),
   toast: document.querySelector("#toast"),
 };
 
@@ -210,6 +270,7 @@ els.todayLabel.textContent = new Intl.DateTimeFormat("zh-Hant-TW", {
 
 bindEvents();
 renderAll();
+startCloudSync();
 
 if ("serviceWorker" in navigator && location.protocol !== "file:") {
   navigator.serviceWorker.register("./sw.js").catch(() => {});
@@ -225,10 +286,14 @@ function bindEvents() {
   els.importFile.addEventListener("change", handleImportFile);
   els.templateButton.addEventListener("click", downloadTemplate);
   els.exportButton.addEventListener("click", exportData);
+  els.backupButton.addEventListener("click", downloadFullBackup);
+  els.restoreButton.addEventListener("click", () => els.restoreFile.click());
+  els.restoreFile.addEventListener("change", handleRestoreFile);
+  els.snapshotButton.addEventListener("click", openSnapshotDialog);
+  els.cloudSyncButton.addEventListener("click", openCloudSyncDialog);
   els.addGuestButton.addEventListener("click", () => openGuestDialog());
   els.addTableButton.addEventListener("click", () => openTableDialog());
   els.fill30TablesButton.addEventListener("click", () => fillTablesToTarget(TARGET_TABLE_COUNT));
-  els.addGiftButton.addEventListener("click", () => openGiftDialog());
   els.addGiftFromViewButton.addEventListener("click", () => openGiftDialog());
   els.tableVisibilityFilter.addEventListener("change", renderSeating);
   els.zoomOutButton.addEventListener("click", () => nudgeCanvasZoom(-CANVAS_ZOOM_STEP));
@@ -238,19 +303,33 @@ function bindEvents() {
   els.seatingCanvas.addEventListener("wheel", handleCanvasWheelZoom, { passive: false });
   window.addEventListener("keydown", handleCanvasShortcutZoom);
   els.fitCanvasButton.addEventListener("click", () => fitCanvasToLayout());
+  els.lockLayoutButton.addEventListener("click", () => setLayoutLock(!state.canvas.layoutLocked));
+  els.undoLayoutButton.addEventListener("click", undoLayoutChange);
+  els.redoLayoutButton.addEventListener("click", redoLayoutChange);
+  els.alignTablesButton.addEventListener("click", alignTablesHorizontally);
   els.resetLayoutButton.addEventListener("click", resetTableLayout);
   els.showNamesToggle.addEventListener("change", renderSeating);
   els.focusUnassignedButton.addEventListener("click", () => setView("guests", { assignment: "unassigned" }));
   els.unassignedSearchInput.addEventListener("input", renderUnassigned);
-  els.guestSearchInput.addEventListener("input", resetGuestTablePage);
-  els.rsvpFilter.addEventListener("change", resetGuestTablePage);
-  els.assignmentFilter.addEventListener("change", resetGuestTablePage);
-  els.relationFilter.addEventListener("change", resetGuestTablePage);
+  els.guestSearchInput.addEventListener("input", renderGuestTable);
+  els.rsvpFilter.addEventListener("change", renderGuestTable);
+  els.assignmentFilter.addEventListener("change", renderGuestTable);
+  els.relationFilter.addEventListener("change", renderGuestTable);
   els.invitationSearchInput.addEventListener("input", renderInvitationTable);
   els.invitationTypeFilter.addEventListener("change", renderInvitationTable);
-  els.invitationDeliveryFilter.addEventListener("change", renderInvitationTable);
+  els.invitationStatusFilter.addEventListener("change", renderInvitationTable);
   els.giftSearchInput.addEventListener("input", renderGiftTable);
   els.giftMethodFilter.addEventListener("change", renderGiftTable);
+  els.quickGiftForm.addEventListener("submit", submitQuickGift);
+  els.quickGiftNameInput.addEventListener("input", updateQuickGiftHint);
+  els.quickGiftAmountInput.addEventListener("input", updateQuickGiftHint);
+  els.quickAmountButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      els.quickGiftAmountInput.value = button.dataset.quickAmount;
+      updateQuickGiftHint();
+      els.quickGiftNameInput.focus();
+    });
+  });
 
   els.closeGuestDialogButton.addEventListener("click", closeGuestDialog);
   els.cancelGuestButton.addEventListener("click", closeGuestDialog);
@@ -259,6 +338,13 @@ function bindEvents() {
   els.closeGiftDialogButton.addEventListener("click", closeGiftDialog);
   els.cancelGiftButton.addEventListener("click", closeGiftDialog);
   els.cancelConfirmButton.addEventListener("click", closeConfirmDialog);
+  els.closeSnapshotDialogButton.addEventListener("click", closeSnapshotDialog);
+  els.cancelSnapshotButton.addEventListener("click", closeSnapshotDialog);
+  els.closeCloudSyncDialogButton.addEventListener("click", closeCloudSyncDialog);
+  els.cloudSyncForm.addEventListener("submit", saveCloudSyncSettings);
+  els.clearCloudSyncButton.addEventListener("click", confirmClearCloudSyncSettings);
+  els.pullCloudButton.addEventListener("click", () => pullCloudState({ confirmBeforeApply: true }));
+  els.pushCloudButton.addEventListener("click", () => pushCloudState({ manual: true }));
 
   els.guestForm.addEventListener("submit", saveGuestFromForm);
   els.tableForm.addEventListener("submit", saveTableFromForm);
@@ -310,7 +396,7 @@ function setView(view, options = {}) {
 
   if (options.assignment) {
     els.assignmentFilter.value = options.assignment;
-    resetGuestTablePage();
+    renderGuestTable();
   }
 }
 
@@ -319,12 +405,16 @@ function renderAll() {
   renderMetrics();
   renderSeating();
   renderUnassigned();
-  renderGiftMiniList();
   renderGuestTable();
   renderInvitationTable();
   renderGiftTable();
   renderTableManager();
   renderGuestSelects();
+  renderQuickGiftOptions();
+  updateQuickGiftHint();
+  renderBackupStatus();
+  renderCloudSyncStatus();
+  syncLayoutSafetyControls();
 }
 
 function renderEventInfo() {
@@ -372,6 +462,8 @@ function renderSeating() {
   });
 
   syncZoomControls();
+  syncLayoutSafetyControls();
+  els.seatingCanvas.classList.toggle("layout-locked", Boolean(state.canvas.layoutLocked));
   els.seatingCanvas.innerHTML = `
     <div class="canvas-surface" style="width:${Math.round(size.width * zoom)}px;height:${Math.round(size.height * zoom)}px">
       <div class="canvas-content" style="width:${size.width}px;height:${size.height}px;transform:scale(${zoom})">
@@ -404,16 +496,17 @@ function renderSeating() {
 }
 
 function renderVenueItem(item) {
+  const locked = Boolean(state.canvas.layoutLocked);
   return `
-    <button class="venue-marker ${item.id === "stage" ? "stage-marker" : "gift-marker"}"
+    <button class="venue-marker ${item.id === "stage" ? "stage-marker" : "gift-marker"} ${locked ? "locked-layout" : ""}"
       data-venue-id="${item.id}"
       type="button"
       style="left:${item.x}px;top:${item.y}px;width:${item.width}px;height:${item.height}px"
       aria-label="移動${escapeHTML(item.label)}"
-      title="移動${escapeHTML(item.label)}">
+      title="${locked ? "桌位已鎖定，無法移動" : `移動${escapeHTML(item.label)}`}">
       <span class="venue-icon">${icons[item.icon] || icons.target}</span>
       <span>${escapeHTML(item.label)}</span>
-      <span class="venue-grip">${icons.grip}</span>
+      <span class="venue-grip">${locked ? icons.lock : icons.grip}</span>
     </button>
   `;
 }
@@ -426,9 +519,10 @@ function renderSeatTable(table, showNames) {
   const emptySlots = Math.min(openSeats, Math.max(0, 4 - assigned.length));
   const seatStatus = tableSeatStatus(table);
   const specialCounts = tableSpecialCounts(table.id);
+  const locked = Boolean(state.canvas.layoutLocked);
 
   return `
-    <section class="seat-table ${table.over ? "over-capacity" : ""} ${table.hidden ? "hidden-by-filter" : ""} table-status-${seatStatus.className}"
+    <section class="seat-table ${table.over ? "over-capacity" : ""} ${table.hidden ? "hidden-by-filter" : ""} ${locked ? "locked-layout" : ""} table-status-${seatStatus.className}"
       data-table-id="${table.id}"
       style="left:${table.x}px;top:${table.y}px">
       <div class="table-card-header">
@@ -436,8 +530,8 @@ function renderSeatTable(table, showNames) {
           <strong class="table-name">${escapeHTML(tableDisplayName(table))}</strong>
           <span class="table-alias">${escapeHTML(table.alias || "未設定別名")}</span>
         </div>
-        <button class="move-handle table-status-box ${seatStatus.className}" data-move-table="${table.id}" type="button" aria-label="${escapeHTML(seatStatus.title)}；拖曳移動桌位" title="${escapeHTML(seatStatus.title)}；拖曳移動桌位">
-          <span class="table-status-main">${seatStatus.icon}<span>${escapeHTML(seatStatus.label)}</span></span>
+        <button class="move-handle table-status-box ${seatStatus.className}" data-move-table="${table.id}" type="button" aria-label="${escapeHTML(seatStatus.title)}${locked ? "；桌位已鎖定" : "；拖曳移動桌位"}" title="${escapeHTML(seatStatus.title)}${locked ? "；桌位已鎖定" : "；拖曳移動桌位"}">
+          <span class="table-status-main">${locked ? icons.lock : seatStatus.icon}<span>${escapeHTML(seatStatus.label)}</span></span>
           ${specialCounts.vegetarianCount || specialCounts.childSeats ? `
             <span class="table-specials">
               ${specialCounts.vegetarianCount ? `<span class="special-pill vegetarian">素${specialCounts.vegetarianCount}</span>` : ""}
@@ -472,37 +566,6 @@ function renderUnassigned() {
   bindGuestActions(els.unassignedList);
 }
 
-function renderGiftMiniList() {
-  const total = state.gifts.reduce((sum, gift) => sum + Number(gift.amount || 0), 0);
-  els.giftSummary.textContent = money(total);
-  const gifts = [...state.gifts].sort((a, b) => new Date(b.createdAt || b.date) - new Date(a.createdAt || a.date)).slice(0, 6);
-  els.giftMiniList.innerHTML = gifts.length
-    ? gifts.map((gift) => `
-      <article class="gift-row">
-        <div class="gift-row-main">
-          <strong>${escapeHTML(gift.name)}</strong>
-          <small>${escapeHTML(gift.method)} · ${escapeHTML(gift.note || "未填備註")}</small>
-        </div>
-        <button class="money-badge" data-edit-gift="${gift.id}" type="button">${money(gift.amount)}</button>
-      </article>
-    `).join("")
-    : empty("尚未登記禮金。");
-
-  els.giftMiniList.querySelectorAll("[data-edit-gift]").forEach((button) => {
-    button.addEventListener("click", () => openGiftDialog(findGift(button.dataset.editGift)));
-  });
-}
-
-function resetGuestTablePage() {
-  guestTablePage = 1;
-  renderGuestTable();
-}
-
-function setGuestTablePage(page) {
-  guestTablePage = Math.max(1, Number.parseInt(page, 10) || 1);
-  renderGuestTable();
-}
-
 function renderGuestTable() {
   const query = els.guestSearchInput.value.trim().toLowerCase();
   const rsvp = els.rsvpFilter.value;
@@ -518,35 +581,31 @@ function renderGuestTable() {
     })
     .filter((guest) => !query || guestHaystack(guest).includes(query))
     .sort((a, b) => rsvpSort(a) - rsvpSort(b) || tableLabel(a.tableId).localeCompare(tableLabel(b.tableId), "zh-Hant") || a.name.localeCompare(b.name, "zh-Hant"));
-  const totalPages = Math.max(1, Math.ceil(rows.length / GUEST_PAGE_SIZE));
-  guestTablePage = clamp(guestTablePage, 1, totalPages);
-  const start = (guestTablePage - 1) * GUEST_PAGE_SIZE;
-  const pageRows = rows.slice(start, start + GUEST_PAGE_SIZE);
-  const pageStart = rows.length ? start + 1 : 0;
-  const pageEnd = Math.min(start + GUEST_PAGE_SIZE, rows.length);
 
   els.guestTable.innerHTML = `
     <div class="table-scroll" role="region" aria-label="賓客名單表格">
       <div class="table-row guest-table header">
-        <span>姓名</span>
+        <span class="cell-left">姓名</span>
         <span class="cell-center">回覆狀態</span>
         <span class="cell-center">座位狀態</span>
-        <span>關係</span>
-        <span>喜帖</span>
+        <span class="cell-center">關係</span>
+        <span class="cell-center">喜帖</span>
         <span class="cell-center">同行人數</span>
         <span class="cell-center">兒童椅</span>
         <span class="cell-center">素食</span>
-        <span>桌號 / 別名</span>
-        <span>備註</span>
-        <span></span>
+        <span class="cell-left">桌號 / 別名</span>
+        <span class="cell-left">備註</span>
+        <span class="cell-actions">操作</span>
       </div>
-      ${pageRows.length ? pageRows.map((guest) => {
+      ${rows.length ? rows.map((guest) => {
         const assignmentStatus = guestAssignmentStatus(guest);
         return `
           <div class="table-row guest-table" data-guest-row="${guest.id}">
-            <div>
-              <strong>${escapeHTML(guest.name)}</strong>
-              <div class="muted">${escapeHTML(guest.phone || "未填電話")}</div>
+            <div class="guest-name-cell">
+              <button class="guest-name-button" data-edit-guest="${guest.id}" data-allow-delete="true" type="button" aria-label="編輯${escapeHTML(guest.name)}">
+                <strong class="guest-name-text" title="${escapeHTML(guest.name)}">${escapeHTML(guest.name)}</strong>
+                <span class="guest-phone-text" title="${escapeHTML(guest.phone || "未填電話")}">${escapeHTML(guest.phone || "未填電話")}</span>
+              </button>
             </div>
             <span class="cell-center">
               <select class="inline-field inline-select" data-guest-field="rsvp" data-guest-id="${guest.id}" aria-label="編輯${escapeHTML(guest.name)}的回覆狀態">
@@ -554,12 +613,12 @@ function renderGuestTable() {
               </select>
             </span>
             <span class="cell-center"><span class="status-badge ${assignmentStatus.className}">${assignmentStatus.label}</span></span>
-            <span>
+            <span class="cell-center">
               <select class="inline-field inline-select relation-select ${guest.relation === "女方親友" ? "bride" : "groom"}" data-guest-field="relation" data-guest-id="${guest.id}" aria-label="編輯${escapeHTML(guest.name)}的關係">
                 ${relationOptions(guest.relation)}
               </select>
             </span>
-            <span>
+            <span class="cell-center">
               <select class="inline-field inline-select invitation-select ${invitationMeta[guest.invitationType]?.className || "none"}" data-guest-field="invitationType" data-guest-id="${guest.id}" aria-label="編輯${escapeHTML(guest.name)}的喜帖">
                 ${invitationOptions(guest.invitationType)}
               </select>
@@ -567,29 +626,20 @@ function renderGuestTable() {
             <span class="cell-center"><input class="inline-field inline-number" data-guest-field="companions" data-guest-id="${guest.id}" type="number" min="0" step="1" value="${Math.max(0, Number.parseInt(guest.companions, 10) || 0)}" aria-label="編輯${escapeHTML(guest.name)}的同行人數" /></span>
             <span class="cell-center"><input class="inline-field inline-number" data-guest-field="childSeats" data-guest-id="${guest.id}" type="number" min="0" step="1" value="${guest.childSeats || 0}" aria-label="編輯${escapeHTML(guest.name)}的兒童座椅數量" /></span>
             <span class="cell-center"><input class="inline-field inline-number" data-guest-field="vegetarianCount" data-guest-id="${guest.id}" type="number" min="0" step="1" value="${guest.vegetarianCount || 0}" aria-label="編輯${escapeHTML(guest.name)}的素食人數" /></span>
-            <span>${escapeHTML(tableLabel(guest.tableId))}</span>
-            <span><input class="inline-field inline-note" data-guest-field="note" data-guest-id="${guest.id}" type="text" value="${escapeHTML(guest.note || "")}" placeholder="備註" aria-label="編輯${escapeHTML(guest.name)}的備註" /></span>
+            <span class="cell-left table-label-cell">${escapeHTML(tableLabel(guest.tableId))}</span>
+            <span class="cell-left note-preview" title="${escapeHTML(guest.note || "未填備註")}">${escapeHTML(guest.note || "未填備註")}</span>
             <div class="row-actions">
               <button class="icon-button" data-edit-guest="${guest.id}" data-allow-delete="true" type="button" aria-label="編輯">${icons.edit}</button>
+              <button class="icon-button danger-icon" data-delete-guest="${guest.id}" type="button" aria-label="刪除${escapeHTML(guest.name)}" title="刪除">${icons.trash}</button>
             </div>
           </div>
         `;
       }).join("") : empty("沒有符合條件的賓客。")}
     </div>
-    <div class="table-pagination" aria-label="賓客分頁">
-      <span>${rows.length ? `第 ${pageStart}-${pageEnd} 筆，共 ${rows.length} 筆` : "共 0 筆"} · 每頁 ${GUEST_PAGE_SIZE} 筆</span>
-      <div class="pagination-actions">
-        <button class="secondary-action" data-guest-page="prev" type="button" ${guestTablePage <= 1 ? "disabled" : ""}>上一頁</button>
-        <span>${guestTablePage} / ${totalPages}</span>
-        <button class="secondary-action" data-guest-page="next" type="button" ${guestTablePage >= totalPages ? "disabled" : ""}>下一頁</button>
-      </div>
+    <div class="table-pagination guest-summary" aria-label="賓客名單摘要">
+      <span>${rows.length ? `共 ${rows.length} 筆賓客` : "共 0 筆"}</span>
     </div>
   `;
-  els.guestTable.querySelectorAll("[data-guest-page]").forEach((button) => {
-    button.addEventListener("click", () => {
-      setGuestTablePage(button.dataset.guestPage === "next" ? guestTablePage + 1 : guestTablePage - 1);
-    });
-  });
   bindGuestInlineEdits(els.guestTable);
   bindGuestActions(els.guestTable);
 }
@@ -597,23 +647,23 @@ function renderGuestTable() {
 function renderInvitationTable() {
   const query = els.invitationSearchInput.value.trim().toLowerCase();
   const type = els.invitationTypeFilter.value;
-  const delivery = els.invitationDeliveryFilter.value;
+  const status = els.invitationStatusFilter.value;
   const rows = state.guests
-    .filter((guest) => guest.invitationType !== "none")
-    .filter((guest) => type === "all" || guest.invitationType === type)
-    .filter((guest) => delivery === "all" || guest.invitationDelivery === delivery)
+    .filter((guest) => invitationTypeMatchesFilter(guest, type))
+    .filter((guest) => status === "all" || invitationStatusFor(guest).key === status)
     .filter((guest) => !query || invitationHaystack(guest).includes(query))
     .sort((a, b) =>
       invitationSortValue(a).localeCompare(invitationSortValue(b), "zh-Hant") ||
       a.name.localeCompare(b.name, "zh-Hant")
     );
-  const sentCount = rows.filter((guest) => guest.invitationDelivery === "sent").length;
+  const statusCounts = countInvitationStatuses(rows);
 
   els.invitationTable.innerHTML = `
     <div class="table-scroll" role="region" aria-label="喜帖寄送名單表格">
       <div class="table-row invitation-table header">
         <span>姓名</span>
         <span>喜帖</span>
+        <span>喜帖狀態</span>
         <span>寄送完成</span>
         <span>地址</span>
         <span>Email</span>
@@ -621,35 +671,66 @@ function renderInvitationTable() {
         <span>電話</span>
         <span>備註</span>
       </div>
-      ${rows.length ? rows.map((guest) => `
-        <div class="table-row invitation-table" data-invitation-row="${guest.id}">
-          <div>
-            <strong>${escapeHTML(guest.name)}</strong>
-            <div class="muted">${escapeHTML(tableLabel(guest.tableId))}</div>
-          </div>
-          <span>
-            <select class="inline-field inline-select invitation-select ${invitationMeta[guest.invitationType]?.className || "none"}" data-guest-field="invitationType" data-guest-id="${guest.id}" aria-label="編輯${escapeHTML(guest.name)}的喜帖">
-              ${invitationOptions(guest.invitationType, { includeNone: false })}
-            </select>
-          </span>
-          <span>
-            <select class="inline-field inline-select delivery-select ${invitationDeliveryMeta[guest.invitationDelivery]?.className || "unsent"}" data-guest-field="invitationDelivery" data-guest-id="${guest.id}" aria-label="編輯${escapeHTML(guest.name)}的寄送狀態">
-              ${invitationDeliveryOptions(guest.invitationDelivery)}
-            </select>
-          </span>
-          <span><input class="inline-field inline-address" data-guest-field="address" data-guest-id="${guest.id}" type="text" value="${escapeHTML(guest.address || "")}" placeholder="紙本地址" aria-label="編輯${escapeHTML(guest.name)}的地址" /></span>
-          <span><input class="inline-field inline-email" data-guest-field="email" data-guest-id="${guest.id}" type="email" value="${escapeHTML(guest.email || "")}" placeholder="email@example.com" aria-label="編輯${escapeHTML(guest.name)}的 email" /></span>
-          <span><span class="relation-badge ${guest.relation === "女方親友" ? "bride" : "groom"}">${escapeHTML(guest.relation)}</span></span>
-          <span>${escapeHTML(guest.phone || "未填")}</span>
-          <span><input class="inline-field inline-note" data-guest-field="note" data-guest-id="${guest.id}" type="text" value="${escapeHTML(guest.note || "")}" placeholder="備註" aria-label="編輯${escapeHTML(guest.name)}的備註" /></span>
-        </div>
-      `).join("") : empty("目前沒有需要喜帖的賓客。")}
+      ${rows.length ? rows.map(invitationRowHTML).join("") : empty("沒有符合條件的喜帖資料。")}
     </div>
     <div class="table-pagination invitation-summary" aria-label="喜帖寄送摘要">
-      <span>共 ${rows.length} 筆需要喜帖 · 已寄送 ${sentCount} 筆 · 未寄送 ${rows.length - sentCount} 筆</span>
+      <span>共 ${rows.length} 筆 · 已寄送 ${statusCounts.sent} 筆 · 待寄送 ${statusCounts.ready} 筆 · 待補資料 ${statusCounts.missing} 筆 · 無喜帖 ${statusCounts.none} 筆</span>
     </div>
   `;
   bindGuestInlineEdits(els.invitationTable);
+}
+
+function invitationRowHTML(guest) {
+  const status = invitationStatusFor(guest);
+  const deliveryControl = guest.invitationType === "none"
+    ? `<span class="invitation-status-badge none">不需寄送</span>`
+    : `<select class="inline-field inline-select delivery-select ${invitationDeliveryMeta[guest.invitationDelivery]?.className || "unsent"}" data-guest-field="invitationDelivery" data-guest-id="${guest.id}" aria-label="編輯${escapeHTML(guest.name)}的寄送狀態">
+        ${invitationDeliveryOptions(guest.invitationDelivery)}
+      </select>`;
+  return `
+    <div class="table-row invitation-table" data-invitation-row="${guest.id}">
+      <div>
+        <strong>${escapeHTML(guest.name)}</strong>
+        <div class="muted">${escapeHTML(tableLabel(guest.tableId))}</div>
+      </div>
+      <span>
+        <select class="inline-field inline-select invitation-select ${invitationMeta[guest.invitationType]?.className || "none"}" data-guest-field="invitationType" data-guest-id="${guest.id}" aria-label="編輯${escapeHTML(guest.name)}的喜帖">
+          ${invitationOptions(guest.invitationType)}
+        </select>
+      </span>
+      <span><span class="invitation-status-badge ${status.className}" title="${escapeHTML(status.hint)}">${status.label}</span></span>
+      <span>${deliveryControl}</span>
+      <span><input class="inline-field inline-address" data-guest-field="address" data-guest-id="${guest.id}" type="text" value="${escapeHTML(guest.address || "")}" placeholder="紙本地址" aria-label="編輯${escapeHTML(guest.name)}的地址" /></span>
+      <span><input class="inline-field inline-email" data-guest-field="email" data-guest-id="${guest.id}" type="email" value="${escapeHTML(guest.email || "")}" placeholder="email@example.com" aria-label="編輯${escapeHTML(guest.name)}的 email" /></span>
+      <span><span class="relation-badge ${guest.relation === "女方親友" ? "bride" : "groom"}">${escapeHTML(guest.relation)}</span></span>
+      <span>${escapeHTML(guest.phone || "未填")}</span>
+      <span><input class="inline-field inline-note" data-guest-field="note" data-guest-id="${guest.id}" type="text" value="${escapeHTML(guest.note || "")}" placeholder="備註" aria-label="編輯${escapeHTML(guest.name)}的備註" /></span>
+    </div>
+  `;
+}
+
+function invitationTypeMatchesFilter(guest, filter) {
+  if (filter === "has") return guest.invitationType !== "none";
+  if (filter === "none") return guest.invitationType === "none";
+  if (filter === "paper" || filter === "digital") return guest.invitationType === filter;
+  return true;
+}
+
+function invitationStatusFor(guest) {
+  const type = normalizeInvitationType(guest.invitationType);
+  if (type === "none") return { key: "none", ...invitationStatusMeta.none };
+  if (guest.invitationDelivery === "sent") return { key: "sent", ...invitationStatusMeta.sent };
+  if (type === "paper" && !String(guest.address || "").trim()) return { key: "missing", ...invitationStatusMeta.missing };
+  if (type === "digital" && !String(guest.email || "").trim()) return { key: "missing", ...invitationStatusMeta.missing };
+  return { key: "ready", ...invitationStatusMeta.ready };
+}
+
+function countInvitationStatuses(guests) {
+  return guests.reduce((counts, guest) => {
+    const key = invitationStatusFor(guest).key;
+    counts[key] = (counts[key] || 0) + 1;
+    return counts;
+  }, { missing: 0, ready: 0, sent: 0, none: 0 });
 }
 
 function bindGuestInlineEdits(root) {
@@ -737,30 +818,43 @@ function renderGiftTable() {
   const total = gifts.reduce((sum, gift) => sum + Number(gift.amount || 0), 0);
 
   els.giftTable.innerHTML = `
-    <div class="table-row gift-table header">
-      <span>姓名</span>
-      <span>金額</span>
-      <span>方式</span>
-      <span>日期</span>
-      <span>備註</span>
-      <span>${money(total)}</span>
-    </div>
-    ${gifts.length ? gifts.map((gift) => `
-      <div class="table-row gift-table">
-        <strong>${escapeHTML(gift.name)}</strong>
-        <span>${money(gift.amount)}</span>
-        <span>${escapeHTML(gift.method)}</span>
-        <span class="muted">${escapeHTML(formatDate(gift.date))}</span>
-        <span class="muted">${escapeHTML(gift.note || "未填")}</span>
-        <div class="row-actions">
-          <button class="icon-button" data-edit-gift="${gift.id}" type="button" aria-label="編輯">${icons.edit}</button>
-        </div>
+    <div class="table-scroll" role="region" aria-label="禮金紀錄表格">
+      <div class="table-row gift-table header">
+        <span>姓名</span>
+        <span>金額</span>
+        <span>方式</span>
+        <span>日期</span>
+        <span>備註</span>
+        <span>${money(total)}</span>
       </div>
-    `).join("") : empty("目前沒有禮金紀錄。")}
+      ${gifts.length ? gifts.map((gift) => `
+        <div class="table-row gift-table">
+          <strong>${escapeHTML(gift.name)}</strong>
+          <span>${money(gift.amount)}</span>
+          <span>${escapeHTML(gift.method)}</span>
+          <span class="muted">${escapeHTML(formatDate(gift.date))}</span>
+          <span class="muted">${escapeHTML(gift.note || "未填")}</span>
+          <div class="row-actions">
+            <button class="icon-button" data-edit-gift="${gift.id}" type="button" aria-label="編輯">${icons.edit}</button>
+            <button class="icon-button danger-icon" data-delete-gift="${gift.id}" type="button" aria-label="刪除${escapeHTML(gift.name)}的禮金紀錄" title="刪除">${icons.trash}</button>
+          </div>
+        </div>
+      `).join("") : empty("目前沒有禮金紀錄。")}
+    </div>
   `;
 
   els.giftTable.querySelectorAll("[data-edit-gift]").forEach((button) => {
-    button.addEventListener("click", () => openGiftDialog(findGift(button.dataset.editGift)));
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      openGiftDialog(findGift(button.dataset.editGift));
+    });
+  });
+  els.giftTable.querySelectorAll("[data-delete-gift]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const gift = findGift(button.dataset.deleteGift);
+      if (gift) confirmDeleteGift(gift);
+    });
   });
 }
 
@@ -825,6 +919,104 @@ function renderGuestSelects() {
   els.giftForm.elements.guestId.innerHTML = giftOptions;
 }
 
+function renderQuickGiftOptions() {
+  els.quickGiftOptions.innerHTML = state.guests
+    .slice()
+    .sort((a, b) => tableSortValue(a.tableId).localeCompare(tableSortValue(b.tableId), "zh-Hant", { numeric: true }) || a.name.localeCompare(b.name, "zh-Hant"))
+    .map((guest) => `<option value="${escapeHTML(guest.name)}" label="${escapeHTML([guest.phone || "未填電話", tableLabel(guest.tableId)].join(" · "))}"></option>`)
+    .join("");
+}
+
+function submitQuickGift(event) {
+  event.preventDefault();
+  const rawName = els.quickGiftNameInput.value.trim();
+  const amount = Math.max(0, Number.parseInt(els.quickGiftAmountInput.value, 10) || 0);
+  const guest = resolveQuickGiftGuest(rawName);
+  const payload = {
+    guestId: guest?.id || "",
+    name: guest?.name || rawName,
+    amount,
+    method: els.quickGiftMethodInput.value,
+    note: els.quickGiftNoteInput.value.trim() || (guest ? tableLabel(guest.tableId) : ""),
+    date: todayISO(),
+  };
+
+  if (!payload.name) {
+    showToast("請輸入姓名或電話");
+    els.quickGiftNameInput.focus();
+    return;
+  }
+  if (!payload.amount) {
+    showToast("請輸入禮金金額");
+    els.quickGiftAmountInput.focus();
+    return;
+  }
+
+  const duplicate = findDuplicateGift(payload);
+  if (duplicate) {
+    openConfirm({
+      kicker: "重複提醒",
+      title: `「${payload.name}」已有禮金紀錄`,
+      message: `既有紀錄為 ${money(duplicate.amount)}（${duplicate.method}）。如果這是代包或第二筆，仍可新增。`,
+      icon: icons.cash,
+      actionLabel: "仍要新增",
+      onConfirm: () => addQuickGiftRecord(payload),
+    });
+    return;
+  }
+
+  addQuickGiftRecord(payload);
+}
+
+function addQuickGiftRecord(payload) {
+  state.gifts.unshift({ id: uid("gift"), ...payload, createdAt: nowISO(), updatedAt: nowISO() });
+  saveState({ snapshotReason: "快速禮金登記" });
+  renderAll();
+  els.quickGiftNameInput.value = "";
+  els.quickGiftAmountInput.value = "";
+  els.quickGiftNoteInput.value = "";
+  updateQuickGiftHint();
+  els.quickGiftNameInput.focus();
+  showToast(`已登記 ${payload.name} ${money(payload.amount)}`);
+}
+
+function resolveQuickGiftGuest(value) {
+  const text = String(value || "").trim();
+  if (!text) return null;
+  const query = text.toLowerCase();
+  return state.guests.find((guest) => guest.name === text || guest.phone === text)
+    || state.guests.find((guest) => query.length >= 2 && guestHaystack(guest).includes(query))
+    || null;
+}
+
+function findDuplicateGift(payload) {
+  return state.gifts.find((gift) =>
+    (payload.guestId && gift.guestId === payload.guestId) ||
+    (!payload.guestId && gift.name === payload.name) ||
+    (payload.guestId && gift.name === payload.name)
+  );
+}
+
+function updateQuickGiftHint() {
+  if (!els.quickGiftHint) return;
+  const guest = resolveQuickGiftGuest(els.quickGiftNameInput.value);
+  const amount = Number.parseInt(els.quickGiftAmountInput.value, 10) || 0;
+  const duplicate = guest
+    ? findDuplicateGift({ guestId: guest.id, name: guest.name })
+    : findDuplicateGift({ guestId: "", name: els.quickGiftNameInput.value.trim() });
+
+  els.quickGiftHint.classList.toggle("warning", Boolean(duplicate));
+  if (duplicate) {
+    els.quickGiftHint.textContent = `提醒：${guest?.name || duplicate.name} 已有 ${money(duplicate.amount)} 禮金紀錄。`;
+    return;
+  }
+  if (guest) {
+    els.quickGiftHint.textContent = `${guest.name} · ${tableLabel(guest.tableId)} · ${guest.phone || "未填電話"}${amount ? ` · 將登記 ${money(amount)}` : ""}`;
+    return;
+  }
+  els.quickGiftHint.textContent = "輸入賓客姓名或電話後，會自動提示桌次與重複禮金。";
+}
+
 function guestChip(guest, showNames) {
   const vegetarianCount = Number.parseInt(guest.vegetarianCount, 10) || 0;
   const childSeats = Number.parseInt(guest.childSeats, 10) || 0;
@@ -875,6 +1067,13 @@ function bindGuestActions(root) {
       event.stopPropagation();
       if (suppressGuestClickId === button.dataset.editGuest) return;
       openGuestDialog(findGuest(button.dataset.editGuest), { allowDelete: button.dataset.allowDelete === "true" });
+    });
+  });
+  root.querySelectorAll("[data-delete-guest]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const guest = findGuest(button.dataset.deleteGuest);
+      if (guest) confirmDeleteGuest(guest);
     });
   });
   root.querySelectorAll("[data-unassign-guest]").forEach((button) => {
@@ -989,6 +1188,10 @@ function startLayoutItemMove(event) {
   const tableId = node.dataset.tableId;
   const venueId = node.dataset.venueId;
   if (!tableId && !venueId) return;
+  if (state.canvas.layoutLocked) {
+    if (event.target.closest(".move-handle, .venue-grip") || venueId) showToast("桌位與場地物件已鎖定，先解除鎖定才能移動");
+    return;
+  }
   const itemRect = node.getBoundingClientRect();
   movingLayoutItem = {
     itemId: tableId || venueId,
@@ -1002,6 +1205,7 @@ function startLayoutItemMove(event) {
     width: itemRect.width,
     height: itemRect.height,
     isDragging: false,
+    historyRecorded: false,
   };
   node.setPointerCapture?.(event.pointerId);
   node.addEventListener("pointermove", moveLayoutItem);
@@ -1018,6 +1222,10 @@ function moveLayoutItem(event) {
   const dx = event.clientX - movingLayoutItem.startX;
   const dy = event.clientY - movingLayoutItem.startY;
   if (!movingLayoutItem.isDragging && Math.hypot(dx, dy) < 8 && !event.target.closest(".move-handle, .venue-grip")) return;
+  if (!movingLayoutItem.historyRecorded) {
+    recordLayoutHistory(movingLayoutItem.itemType === "table" ? "移動桌位" : "移動場地物件");
+    movingLayoutItem.historyRecorded = true;
+  }
   movingLayoutItem.isDragging = true;
   event.preventDefault();
   const rect = canvasContentRect();
@@ -1071,6 +1279,8 @@ function assignGuestToTable(guestId, tableId) {
   }
   const table = tableId ? findTable(tableId) : null;
   if (tableId && !table) return;
+  if ((guest.tableId || null) === (tableId || null)) return;
+  recordLayoutHistory(table ? "安排賓客座位" : "移回待安排");
   const nextOccupancy = table ? tableOccupancy(tableId, guestId) + partySize(guest) : 0;
   guest.tableId = tableId || null;
   saveState();
@@ -1116,6 +1326,7 @@ function closeGuestDialog() {
 function saveGuestFromForm(event) {
   event.preventDefault();
   const formData = Object.fromEntries(new FormData(els.guestForm));
+  const existingGuest = findGuest(formData.id);
   const payload = {
     name: formData.name.trim(),
     rsvp: formData.rsvp,
@@ -1133,10 +1344,14 @@ function saveGuestFromForm(event) {
     note: formData.note.trim(),
   };
   if (payload.invitationType === "none") payload.invitationDelivery = "unsent";
+  const nextTableId = payload.rsvp === "declined" ? null : payload.tableId;
+  if (existingGuest && (existingGuest.tableId || null) !== (nextTableId || null)) {
+    recordLayoutHistory("更新賓客座位");
+  }
 
   if (formData.id) {
     state.guests = state.guests.map((guest) =>
-      guest.id === formData.id ? { ...guest, ...payload, tableId: payload.rsvp === "declined" ? null : payload.tableId, updatedAt: nowISO() } : guest
+      guest.id === formData.id ? { ...guest, ...payload, tableId: nextTableId, updatedAt: nowISO() } : guest
     );
   } else {
     state.guests.push({ id: uid("guest"), ...payload, createdAt: nowISO(), updatedAt: nowISO() });
@@ -1179,6 +1394,7 @@ function saveTableFromForm(event) {
     kind: data.kind,
   };
 
+  recordLayoutHistory(data.id ? "編輯桌次" : "新增桌次");
   if (data.id) {
     state.tables = state.tables.map((table) => table.id === data.id ? { ...table, ...payload } : table);
   } else {
@@ -1255,9 +1471,10 @@ function confirmDeleteGuest(guest) {
     icon: icons.trash,
     actionLabel: "確認刪除",
     onConfirm: () => {
+      writeAutoSnapshot("刪除賓客前");
       state.guests = state.guests.filter((item) => item.id !== guest.id);
       saveState();
-      closeGuestDialog();
+      if (els.guestDialog.open) closeGuestDialog();
       renderAll();
       showToast("賓客已刪除");
     },
@@ -1272,9 +1489,10 @@ function confirmDeleteGift(gift) {
     icon: icons.trash,
     actionLabel: "確認刪除",
     onConfirm: () => {
+      writeAutoSnapshot("刪除禮金前");
       state.gifts = state.gifts.filter((item) => item.id !== gift.id);
       saveState();
-      closeGiftDialog();
+      if (els.giftDialog.open) closeGiftDialog();
       renderAll();
       showToast("禮金紀錄已刪除");
     },
@@ -1290,6 +1508,7 @@ function confirmClearTable(table) {
     icon: icons.refresh,
     actionLabel: "確認清空",
     onConfirm: () => {
+      recordLayoutHistory("清空桌次");
       state.guests = state.guests.map((guest) => guest.tableId === table.id ? { ...guest, tableId: null } : guest);
       saveState();
       renderAll();
@@ -1307,6 +1526,7 @@ function confirmDeleteTable(table) {
     icon: icons.trash,
     actionLabel: "確認刪除",
     onConfirm: () => {
+      recordLayoutHistory("刪除桌次");
       state.tables = state.tables.filter((item) => item.id !== table.id);
       state.guests = state.guests.map((guest) => guest.tableId === table.id ? { ...guest, tableId: null } : guest);
       saveState();
@@ -1332,6 +1552,7 @@ function closeConfirmDialog() {
 }
 
 function resetTableLayout() {
+  recordLayoutHistory("重整桌位");
   autoArrangeTables();
   state.venueItems = structuredClone(seedState.venueItems);
   saveState();
@@ -1339,7 +1560,54 @@ function resetTableLayout() {
   showToast("場地位置已重整");
 }
 
+function alignTablesHorizontally() {
+  if (state.tables.length < 2) {
+    showToast("需要至少 2 桌才能對齊");
+    return;
+  }
+
+  const before = captureLayoutSignature();
+  const beforeState = captureLayoutSnapshot();
+  const tolerance = Math.round(TABLE_ROW_HEIGHT * 0.45);
+  const rows = [];
+  state.tables
+    .slice()
+    .sort((a, b) => a.y - b.y || a.x - b.x)
+    .forEach((table) => {
+      const row = rows.find((item) => Math.abs(item.y - table.y) <= tolerance);
+      if (!row) {
+        rows.push({ y: table.y, tables: [table] });
+        return;
+      }
+      row.tables.push(table);
+      row.y = Math.round(row.tables.reduce((sum, item) => sum + item.y, 0) / row.tables.length);
+    });
+
+  let changed = 0;
+  rows.forEach((row) => {
+    const sortedY = row.tables.map((table) => table.y).sort((a, b) => a - b);
+    const alignedY = sortedY[Math.floor(sortedY.length / 2)];
+    row.tables.forEach((table) => {
+      if (table.y !== alignedY) {
+        table.y = alignedY;
+        changed += 1;
+      }
+    });
+  });
+
+  if (!changed || captureLayoutSignature() === before) {
+    showToast("桌位已經水平對齊");
+    return;
+  }
+
+  recordLayoutHistory("水平對齊桌位", beforeState);
+  saveState();
+  renderSeating();
+  showToast(`已水平對齊 ${rows.length} 列桌位`);
+}
+
 function fillTablesToTarget(targetCount) {
+  recordLayoutHistory(state.tables.length >= targetCount ? "重新排列桌位" : "補到 30 桌");
   if (state.tables.length >= targetCount) {
     autoArrangeTables();
     saveState();
@@ -1380,6 +1648,7 @@ async function handleImportFile(event) {
   if (!file) return;
   try {
     const text = await file.text();
+    writeAutoSnapshot("匯入名單前");
     const result = importGuestsFromCSV(text);
     saveState();
     renderAll();
@@ -1553,6 +1822,413 @@ function downloadText(filename, content, type) {
   URL.revokeObjectURL(url);
 }
 
+function downloadFullBackup() {
+  state.meta = { ...seedState.meta, ...(state.meta || {}), lastBackupAt: nowISO(), updatedAt: nowISO() };
+  const backup = {
+    app: "wedding-seat-planner",
+    version: BACKUP_VERSION,
+    exportedAt: state.meta.lastBackupAt,
+    state: clonePlannerState(),
+  };
+  saveState({ snapshotReason: "手動備份" });
+  downloadText(`wedding-planner-backup-${todayISO()}.json`, JSON.stringify(backup, null, 2), "application/json;charset=utf-8");
+  showToast("完整資料備份已下載");
+}
+
+async function handleRestoreFile(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  try {
+    const data = JSON.parse(await file.text());
+    const nextState = extractBackupState(data);
+    const summary = summarizeState(nextState);
+    openConfirm({
+      kicker: "還原備份",
+      title: "用備份檔覆蓋目前資料？",
+      message: `將還原 ${summary.guests} 筆賓客、${summary.tables} 桌、${summary.gifts} 筆禮金。還原前會先建立一筆自動快照。`,
+      icon: icons.upload,
+      actionLabel: "確認還原",
+      onConfirm: () => restorePlannerState(nextState, "備份檔"),
+    });
+  } catch (error) {
+    showToast(error.message || "備份檔無法讀取，請確認 JSON 格式");
+  } finally {
+    event.target.value = "";
+  }
+}
+
+function extractBackupState(data) {
+  const candidate = data?.state || data;
+  if (!candidate || !Array.isArray(candidate.guests) || !Array.isArray(candidate.tables) || !Array.isArray(candidate.gifts)) {
+    throw new Error("這不是有效的婚禮座位規劃備份檔");
+  }
+  return normalizeState(candidate);
+}
+
+function restorePlannerState(nextState, sourceLabel) {
+  writeAutoSnapshot(`還原${sourceLabel}前`);
+  state = normalizeState({
+    ...nextState,
+    meta: {
+      ...(nextState.meta || {}),
+      lastRestoredAt: nowISO(),
+    },
+  });
+  layoutUndoStack = [];
+  layoutRedoStack = [];
+  saveState({ snapshotReason: `已還原${sourceLabel}` });
+  renderAll();
+  showToast(`已還原${sourceLabel}`);
+}
+
+function maybeCreateAutoSnapshot(reason) {
+  const snapshots = loadAutoSnapshots();
+  const last = snapshots[0];
+  if (last && Date.now() - new Date(last.createdAt).getTime() < AUTO_SNAPSHOT_INTERVAL_MS) return;
+  writeAutoSnapshot(reason);
+}
+
+function writeAutoSnapshot(reason) {
+  const snapshot = {
+    id: uid("snapshot"),
+    reason,
+    createdAt: nowISO(),
+    state: clonePlannerState(),
+  };
+  const snapshots = [snapshot, ...loadAutoSnapshots()].slice(0, MAX_AUTO_SNAPSHOTS);
+  localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(snapshots));
+  renderBackupStatus();
+}
+
+function loadAutoSnapshots() {
+  try {
+    const snapshots = JSON.parse(localStorage.getItem(SNAPSHOT_KEY) || "[]");
+    return Array.isArray(snapshots) ? snapshots.filter((item) => item?.state) : [];
+  } catch {
+    return [];
+  }
+}
+
+function openSnapshotDialog() {
+  renderSnapshotList();
+  els.snapshotDialog.showModal();
+}
+
+function closeSnapshotDialog() {
+  els.snapshotDialog.close();
+}
+
+function renderSnapshotList() {
+  const snapshots = loadAutoSnapshots();
+  els.snapshotList.innerHTML = snapshots.length
+    ? snapshots.map((snapshot) => {
+      const summary = summarizeState(snapshot.state);
+      return `
+        <article class="snapshot-item">
+          <div>
+            <strong>${escapeHTML(snapshot.reason || "自動快照")}</strong>
+            <span>${escapeHTML(formatDateTime(snapshot.createdAt))} · ${summary.guests} 筆賓客 · ${summary.tables} 桌 · ${summary.gifts} 筆禮金</span>
+          </div>
+          <button class="mini-button" data-restore-snapshot="${snapshot.id}" type="button">${icons.refresh}<span>還原</span></button>
+        </article>
+      `;
+    }).join("")
+    : empty("目前還沒有自動快照。資料更新後會自動保留最近幾筆版本。");
+
+  els.snapshotList.querySelectorAll("[data-restore-snapshot]").forEach((button) => {
+    button.addEventListener("click", () => confirmRestoreSnapshot(button.dataset.restoreSnapshot));
+  });
+}
+
+function confirmRestoreSnapshot(snapshotId) {
+  const snapshot = loadAutoSnapshots().find((item) => item.id === snapshotId);
+  if (!snapshot) return;
+  openConfirm({
+    kicker: "還原快照",
+    title: `還原「${snapshot.reason || "自動快照"}」？`,
+    message: `將回到 ${formatDateTime(snapshot.createdAt)} 的資料狀態，並先保留目前狀態為快照。`,
+    icon: icons.refresh,
+    actionLabel: "確認還原",
+    onConfirm: () => {
+      closeSnapshotDialog();
+      restorePlannerState(normalizeState(snapshot.state), "快照");
+    },
+  });
+}
+
+function renderBackupStatus() {
+  if (!els.backupStatus) return;
+  const snapshots = loadAutoSnapshots();
+  const lastBackup = state.meta?.lastBackupAt;
+  const label = lastBackup ? `備份 ${formatDateTime(lastBackup)}` : "尚未備份";
+  els.backupStatus.textContent = `${label} · 快照 ${snapshots.length}`;
+}
+
+function loadCloudSyncConfig() {
+  try {
+    return normalizeCloudSyncConfig(JSON.parse(localStorage.getItem(CLOUD_SYNC_CONFIG_KEY) || "{}"));
+  } catch {
+    return normalizeCloudSyncConfig({});
+  }
+}
+
+function normalizeCloudSyncConfig(value) {
+  return {
+    url: String(value?.url || "").trim().replace(/\/+$/, ""),
+    anonKey: String(value?.anonKey || "").trim(),
+    syncKey: String(value?.syncKey || "").trim(),
+    autoSync: Boolean(value?.autoSync),
+    lastSyncedAt: value?.lastSyncedAt || "",
+  };
+}
+
+function cloudSyncConfigured() {
+  return Boolean(cloudSyncConfig.url && cloudSyncConfig.anonKey && cloudSyncConfig.syncKey);
+}
+
+function openCloudSyncDialog() {
+  els.cloudSyncForm.elements.url.value = cloudSyncConfig.url;
+  els.cloudSyncForm.elements.anonKey.value = cloudSyncConfig.anonKey;
+  els.cloudSyncForm.elements.syncKey.value = cloudSyncConfig.syncKey;
+  els.cloudSyncForm.elements.autoSync.checked = cloudSyncConfig.autoSync;
+  renderCloudSyncStatus();
+  els.cloudSyncDialog.showModal();
+}
+
+function closeCloudSyncDialog() {
+  els.cloudSyncDialog.close();
+}
+
+function saveCloudSyncSettings(event) {
+  event.preventDefault();
+  const data = Object.fromEntries(new FormData(els.cloudSyncForm));
+  cloudSyncConfig = normalizeCloudSyncConfig({
+    url: data.url,
+    anonKey: data.anonKey,
+    syncKey: data.syncKey,
+    autoSync: data.autoSync === "on",
+    lastSyncedAt: cloudSyncConfig.lastSyncedAt,
+  });
+  localStorage.setItem(CLOUD_SYNC_CONFIG_KEY, JSON.stringify(cloudSyncConfig));
+  renderCloudSyncStatus("同步設定已儲存");
+  restartCloudSyncPolling();
+  showToast(cloudSyncConfigured() ? "雲端同步設定已儲存" : "雲端同步尚未完整設定");
+  if (cloudSyncConfigured() && cloudSyncConfig.autoSync) runCloudStartupSync();
+}
+
+function confirmClearCloudSyncSettings() {
+  openConfirm({
+    kicker: "清除雲端同步",
+    title: "清除這台裝置的同步設定？",
+    message: "這只會移除本機瀏覽器中的 Supabase 設定，不會刪除本機婚禮資料，也不會刪除雲端資料。",
+    icon: icons.cloud,
+    actionLabel: "確認清除",
+    onConfirm: () => {
+      cloudSyncConfig = normalizeCloudSyncConfig({});
+      localStorage.removeItem(CLOUD_SYNC_CONFIG_KEY);
+      restartCloudSyncPolling();
+      renderCloudSyncStatus("已清除同步設定");
+      closeCloudSyncDialog();
+      showToast("已清除雲端同步設定");
+    },
+  });
+}
+
+function renderCloudSyncStatus(message = cloudSyncLastMessage) {
+  if (!els.cloudSyncStatus) return;
+  if (message) cloudSyncLastMessage = message;
+  const configured = cloudSyncConfigured();
+  const syncedText = cloudSyncConfig.lastSyncedAt ? ` · ${formatDateTime(cloudSyncConfig.lastSyncedAt)}` : "";
+  els.cloudSyncStatus.textContent = configured
+    ? `${cloudSyncConfig.autoSync ? "自動同步" : "手動同步"}${syncedText}`
+    : "本機模式";
+  els.cloudSyncStatus.classList.toggle("connected", configured);
+  if (els.cloudSyncMessage) {
+    els.cloudSyncMessage.textContent = message || (configured
+      ? `已設定同步代碼。${cloudSyncConfig.autoSync ? "自動同步已啟用。" : "目前為手動同步。"}`
+      : "尚未設定雲端同步。");
+  }
+  els.pullCloudButton.disabled = !configured || cloudSyncBusy;
+  els.pushCloudButton.disabled = !configured || cloudSyncBusy;
+}
+
+function startCloudSync() {
+  renderCloudSyncStatus();
+  restartCloudSyncPolling();
+  if (cloudSyncConfigured() && cloudSyncConfig.autoSync) {
+    window.setTimeout(() => runCloudStartupSync(), 500);
+  }
+}
+
+function restartCloudSyncPolling() {
+  window.clearInterval(cloudSyncPollTimer);
+  cloudSyncPollTimer = null;
+  if (cloudSyncConfigured() && cloudSyncConfig.autoSync) {
+    cloudSyncPollTimer = window.setInterval(() => pullCloudState({ silent: true, onlyIfNewer: true }), CLOUD_SYNC_POLL_MS);
+  }
+}
+
+function scheduleCloudPush() {
+  if (!cloudSyncConfigured() || !cloudSyncConfig.autoSync) return;
+  window.clearTimeout(cloudSyncTimer);
+  cloudSyncTimer = window.setTimeout(() => pushCloudState({ silent: true }), CLOUD_SYNC_DEBOUNCE_MS);
+}
+
+async function runCloudStartupSync() {
+  if (!cloudSyncConfigured() || cloudSyncBusy) return;
+  try {
+    const remote = await fetchCloudRecord();
+    if (!remote) {
+      await pushCloudState({ silent: true });
+      return;
+    }
+    if (remoteIsNewer(remote.updated_at, remote.payload)) {
+      applyCloudState(remote.payload, remote.updated_at, { silent: true });
+      return;
+    }
+    await pushCloudState({ silent: true });
+  } catch (error) {
+    renderCloudSyncStatus(`雲端同步失敗：${error.message}`);
+  }
+}
+
+async function pushCloudState(options = {}) {
+  const { manual = false, silent = false } = options;
+  if (!cloudSyncConfigured()) {
+    if (!silent) showToast("請先完成雲端同步設定");
+    return;
+  }
+  setCloudBusy(true, "正在上傳本機資料...");
+  try {
+    const syncedAt = nowISO();
+    const payload = {
+      sync_key: cloudSyncConfig.syncKey,
+      payload: clonePlannerState(),
+      updated_at: syncedAt,
+    };
+    const response = await fetch(`${cloudSyncConfig.url}/rest/v1/wedding_planner_sync?on_conflict=sync_key`, {
+      method: "POST",
+      headers: cloudHeaders({ prefer: "resolution=merge-duplicates,return=representation" }),
+      body: JSON.stringify(payload),
+    });
+    await assertCloudResponse(response, "上傳雲端失敗");
+    cloudSyncConfig.lastSyncedAt = syncedAt;
+    localStorage.setItem(CLOUD_SYNC_CONFIG_KEY, JSON.stringify(cloudSyncConfig));
+    renderCloudSyncStatus("本機資料已上傳雲端");
+    if (manual && !silent) showToast("本機資料已上傳雲端");
+  } catch (error) {
+    renderCloudSyncStatus(`上傳失敗：${error.message}`);
+    if (!silent) showToast(error.message || "上傳雲端失敗");
+  } finally {
+    setCloudBusy(false);
+  }
+}
+
+async function pullCloudState(options = {}) {
+  const { confirmBeforeApply = false, silent = false, onlyIfNewer = false } = options;
+  if (!cloudSyncConfigured()) {
+    if (!silent) showToast("請先完成雲端同步設定");
+    return;
+  }
+  setCloudBusy(true, "正在讀取雲端資料...");
+  try {
+    const remote = await fetchCloudRecord();
+    if (!remote) {
+      renderCloudSyncStatus("雲端尚無資料，可先上傳本機資料");
+      if (!silent) showToast("雲端尚無資料");
+      return;
+    }
+    if (onlyIfNewer && !remoteIsNewer(remote.updated_at, remote.payload)) {
+      renderCloudSyncStatus("雲端資料沒有更新");
+      return;
+    }
+    if (confirmBeforeApply) {
+      openConfirm({
+        kicker: "下載雲端",
+        title: "用雲端資料覆蓋本機？",
+        message: `雲端資料更新於 ${formatDateTime(remote.updated_at)}。套用前會先建立本機快照。`,
+        icon: icons.cloud,
+        actionLabel: "確認下載",
+        onConfirm: () => applyCloudState(remote.payload, remote.updated_at),
+      });
+      renderCloudSyncStatus("等待確認下載雲端資料");
+      return;
+    }
+    applyCloudState(remote.payload, remote.updated_at, { silent });
+  } catch (error) {
+    renderCloudSyncStatus(`下載失敗：${error.message}`);
+    if (!silent) showToast(error.message || "下載雲端失敗");
+  } finally {
+    setCloudBusy(false);
+  }
+}
+
+async function fetchCloudRecord() {
+  const key = encodeURIComponent(cloudSyncConfig.syncKey);
+  const response = await fetch(`${cloudSyncConfig.url}/rest/v1/wedding_planner_sync?sync_key=eq.${key}&select=payload,updated_at&limit=1`, {
+    headers: cloudHeaders(),
+  });
+  await assertCloudResponse(response, "讀取雲端失敗");
+  const rows = await response.json();
+  return Array.isArray(rows) && rows.length ? rows[0] : null;
+}
+
+function applyCloudState(payload, updatedAt, options = {}) {
+  const { silent = false } = options;
+  writeAutoSnapshot("套用雲端資料前");
+  state = normalizeState(payload);
+  cloudSyncConfig.lastSyncedAt = updatedAt || nowISO();
+  localStorage.setItem(CLOUD_SYNC_CONFIG_KEY, JSON.stringify(cloudSyncConfig));
+  layoutUndoStack = [];
+  layoutRedoStack = [];
+  saveState({ snapshotReason: "套用雲端資料", createSnapshot: false, skipCloudSync: true });
+  renderAll();
+  renderCloudSyncStatus("已套用雲端資料");
+  if (!silent) showToast("已套用雲端資料");
+}
+
+function remoteIsNewer(updatedAt, payload) {
+  const remoteTime = new Date(updatedAt || payload?.meta?.updatedAt || 0).getTime();
+  const localTime = new Date(state.meta?.updatedAt || 0).getTime();
+  return Number.isFinite(remoteTime) && remoteTime > localTime + 1000;
+}
+
+function cloudHeaders(options = {}) {
+  const headers = {
+    apikey: cloudSyncConfig.anonKey,
+    Authorization: `Bearer ${cloudSyncConfig.anonKey}`,
+    "Content-Type": "application/json",
+    "x-sync-key": cloudSyncConfig.syncKey,
+  };
+  if (options.prefer) headers.Prefer = options.prefer;
+  return headers;
+}
+
+async function assertCloudResponse(response, fallbackMessage) {
+  if (response.ok) return;
+  let detail = "";
+  try {
+    const data = await response.json();
+    detail = data.message || data.error || "";
+  } catch {
+    detail = await response.text().catch(() => "");
+  }
+  throw new Error(`${fallbackMessage}${detail ? `：${detail}` : ""}`);
+}
+
+function setCloudBusy(busy, message = "") {
+  cloudSyncBusy = busy;
+  renderCloudSyncStatus(message || cloudSyncLastMessage);
+}
+
+function summarizeState(value) {
+  return {
+    guests: Array.isArray(value?.guests) ? value.guests.length : 0,
+    tables: Array.isArray(value?.tables) ? value.tables.length : 0,
+    gifts: Array.isArray(value?.gifts) ? value.gifts.length : 0,
+  };
+}
+
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -1576,6 +2252,7 @@ function normalizeState(value) {
   };
   const next = {
     canvas: { ...seedState.canvas, ...(value.canvas || {}), coordinateMode: "px" },
+    meta: { ...seedState.meta, ...(value.meta || {}) },
     wedding: { ...seedState.wedding, ...(value.wedding || {}) },
     venueItems: Array.isArray(value.venueItems) ? value.venueItems : structuredClone(seedState.venueItems),
     tables: Array.isArray(value.tables) ? value.tables : structuredClone(seedState.tables),
@@ -1654,13 +2331,120 @@ function normalizeState(value) {
   return next;
 }
 
-function saveState() {
+function saveState(options = {}) {
+  const { snapshotReason = "自動保存", createSnapshot = true, skipCloudSync = false } = options;
+  state.meta = { ...seedState.meta, ...(state.meta || {}), updatedAt: nowISO() };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  if (createSnapshot) maybeCreateAutoSnapshot(snapshotReason);
   markSaved(true);
+  renderBackupStatus();
+  syncLayoutSafetyControls();
+  if (!skipCloudSync) scheduleCloudPush();
 }
 
 function markSaved(saved) {
   els.layoutSavedLabel.textContent = saved ? "已保存" : "編輯中";
+}
+
+function clonePlannerState() {
+  return structuredClone(state);
+}
+
+function captureLayoutSnapshot(source = state) {
+  return {
+    tables: source.tables.map((table) => ({
+      id: table.id,
+      number: table.number,
+      alias: table.alias,
+      name: table.name,
+      capacity: table.capacity,
+      kind: table.kind,
+      x: table.x,
+      y: table.y,
+    })),
+    venueItems: source.venueItems.map((item) => ({
+      id: item.id,
+      label: item.label,
+      icon: item.icon,
+      width: item.width,
+      height: item.height,
+      x: item.x,
+      y: item.y,
+    })),
+    guestAssignments: source.guests.map((guest) => ({
+      id: guest.id,
+      tableId: guest.tableId || null,
+    })),
+  };
+}
+
+function captureLayoutSignature() {
+  return JSON.stringify(captureLayoutSnapshot());
+}
+
+function recordLayoutHistory(label, snapshot = captureLayoutSnapshot()) {
+  if (isRestoringHistory) return;
+  layoutUndoStack.push({ label, at: nowISO(), layout: snapshot });
+  if (layoutUndoStack.length > LAYOUT_HISTORY_LIMIT) layoutUndoStack.shift();
+  layoutRedoStack = [];
+  syncLayoutSafetyControls();
+}
+
+function undoLayoutChange() {
+  restoreLayoutHistory(layoutUndoStack, layoutRedoStack, "已復原");
+}
+
+function redoLayoutChange() {
+  restoreLayoutHistory(layoutRedoStack, layoutUndoStack, "已重做");
+}
+
+function restoreLayoutHistory(sourceStack, targetStack, messagePrefix) {
+  const entry = sourceStack.pop();
+  if (!entry) return;
+  targetStack.push({ label: entry.label, at: nowISO(), layout: captureLayoutSnapshot() });
+  isRestoringHistory = true;
+  applyLayoutSnapshot(entry.layout);
+  saveState({ createSnapshot: false });
+  isRestoringHistory = false;
+  renderAll();
+  showToast(`${messagePrefix}：${entry.label}`);
+}
+
+function applyLayoutSnapshot(layout) {
+  if (!layout) return;
+  const currentLock = Boolean(state.canvas.layoutLocked);
+  state.tables = Array.isArray(layout.tables) ? layout.tables.map((table) => ({ ...table })) : state.tables;
+  state.venueItems = Array.isArray(layout.venueItems) ? layout.venueItems.map((item) => ({ ...item })) : state.venueItems;
+  const assignmentMap = new Map((layout.guestAssignments || []).map((item) => [item.id, item.tableId || null]));
+  const tableIds = new Set(state.tables.map((table) => table.id));
+  state.guests = state.guests.map((guest) => {
+    if (!assignmentMap.has(guest.id)) {
+      return tableIds.has(guest.tableId) ? guest : { ...guest, tableId: null };
+    }
+    const tableId = assignmentMap.get(guest.id);
+    return { ...guest, tableId: tableId && tableIds.has(tableId) ? tableId : null };
+  });
+  state.canvas.layoutLocked = currentLock;
+}
+
+function setLayoutLock(locked) {
+  state.canvas.layoutLocked = Boolean(locked);
+  saveState({ createSnapshot: false });
+  renderSeating();
+  showToast(locked ? "桌位與場地物件已鎖定" : "已解除桌位鎖定");
+}
+
+function syncLayoutSafetyControls() {
+  if (!els.lockLayoutButton) return;
+  const locked = Boolean(state.canvas.layoutLocked);
+  const icon = els.lockLayoutButton.querySelector("[data-icon]");
+  const label = els.lockLayoutButton.querySelector("span:last-child");
+  if (icon) icon.innerHTML = locked ? icons.unlock : icons.lock;
+  if (label) label.textContent = locked ? "解除鎖定" : "鎖定桌位";
+  els.lockLayoutButton.classList.toggle("active-lock", locked);
+  els.lockLayoutButton.title = locked ? "解除桌位與場地物件位置鎖定" : "鎖定桌位與場地物件位置";
+  els.undoLayoutButton.disabled = layoutUndoStack.length === 0;
+  els.redoLayoutButton.disabled = layoutRedoStack.length === 0;
 }
 
 function nudgeCanvasZoom(delta) {
@@ -2070,19 +2854,22 @@ function rsvpSort(guest) {
 function guestHaystack(guest) {
   const invitationLabel = invitationMeta[guest.invitationType]?.label || "無";
   const deliveryLabel = invitationDeliveryMeta[guest.invitationDelivery]?.label || "未寄送";
-  return `${guest.name} ${guest.phone} ${guest.relation} ${guest.group} ${guest.note} ${tableLabel(guest.tableId)} ${rsvpMeta[guest.rsvp].label} ${guest.childSeats || 0} ${guest.vegetarianCount || 0} ${invitationLabel} ${deliveryLabel} ${guest.address || ""} ${guest.email || ""}`.toLowerCase();
+  const invitationStatus = invitationStatusFor(guest).label;
+  return `${guest.name} ${guest.phone} ${guest.relation} ${guest.group} ${guest.note} ${tableLabel(guest.tableId)} ${rsvpMeta[guest.rsvp].label} ${guest.childSeats || 0} ${guest.vegetarianCount || 0} ${invitationLabel} ${deliveryLabel} ${invitationStatus} ${guest.address || ""} ${guest.email || ""}`.toLowerCase();
 }
 
 function invitationHaystack(guest) {
   const invitationLabel = invitationMeta[guest.invitationType]?.label || "無";
   const deliveryLabel = invitationDeliveryMeta[guest.invitationDelivery]?.label || "未寄送";
-  return `${guest.name} ${guest.phone} ${guest.relation} ${guest.group} ${guest.note} ${tableLabel(guest.tableId)} ${invitationLabel} ${deliveryLabel} ${guest.address || ""} ${guest.email || ""}`.toLowerCase();
+  const invitationStatus = invitationStatusFor(guest).label;
+  return `${guest.name} ${guest.phone} ${guest.relation} ${guest.group} ${guest.note} ${tableLabel(guest.tableId)} ${invitationLabel} ${deliveryLabel} ${invitationStatus} ${guest.address || ""} ${guest.email || ""}`.toLowerCase();
 }
 
 function invitationSortValue(guest) {
+  const statusRank = { missing: "0", ready: "1", sent: "2", none: "3" }[invitationStatusFor(guest).key] || "4";
   const typeRank = { paper: "0", digital: "1", none: "2" }[guest.invitationType] || "2";
   const deliveryRank = guest.invitationDelivery === "sent" ? "1" : "0";
-  return `${deliveryRank}-${typeRank}-${tableSortValue(guest.tableId)}`;
+  return `${statusRank}-${deliveryRank}-${typeRank}-${tableSortValue(guest.tableId)}`;
 }
 
 function allowDrop(event) {
@@ -2108,6 +2895,16 @@ function formatDate(value) {
     month: "2-digit",
     day: "2-digit",
   }).format(new Date(`${value}T00:00:00`));
+}
+
+function formatDateTime(value) {
+  if (!value) return "尚未建立";
+  return new Intl.DateTimeFormat("zh-Hant-TW", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
 }
 
 function todayISO() {

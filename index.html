@@ -9,7 +9,7 @@
     <title>囍座位規劃</title>
     <link rel="manifest" href="./manifest.json" />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=wedding-planner-13" />
+    <link rel="stylesheet" href="./styles.css?v=wedding-planner-22" />
   </head>
   <body>
     <div class="app-shell">
@@ -81,6 +81,27 @@
               <span data-icon="archive"></span>
               <span>匯出名單</span>
             </button>
+            <input id="restoreFile" type="file" accept=".json,application/json" hidden />
+            <div class="backup-actions" aria-label="資料安全">
+              <button class="secondary-action" id="backupButton" type="button">
+                <span data-icon="download"></span>
+                <span>備份資料</span>
+              </button>
+              <button class="secondary-action" id="restoreButton" type="button">
+                <span data-icon="upload"></span>
+                <span>還原備份</span>
+              </button>
+              <button class="secondary-action" id="snapshotButton" type="button">
+                <span data-icon="archive"></span>
+                <span>快照</span>
+              </button>
+              <button class="secondary-action" id="cloudSyncButton" type="button">
+                <span data-icon="cloud"></span>
+                <span>雲端同步</span>
+              </button>
+              <span class="backup-status" id="backupStatus">尚未備份</span>
+              <span class="cloud-status" id="cloudSyncStatus">本機模式</span>
+            </div>
             <button class="primary-action" id="addTableButton" type="button">
               <span data-icon="plus"></span>
               <span>新增桌次</span>
@@ -130,6 +151,20 @@
                   <button class="icon-button" id="resetLayoutButton" type="button" aria-label="重整桌位" title="重整桌位">
                     <span data-icon="refresh"></span>
                   </button>
+                  <button class="icon-button" id="undoLayoutButton" type="button" aria-label="復原座位圖變更" title="復原座位圖變更">
+                    <span data-icon="undo"></span>
+                  </button>
+                  <button class="icon-button" id="redoLayoutButton" type="button" aria-label="重做座位圖變更" title="重做座位圖變更">
+                    <span data-icon="redo"></span>
+                  </button>
+                  <button class="secondary-action" id="lockLayoutButton" type="button" title="鎖定桌位與場地物件位置">
+                    <span data-icon="lock"></span>
+                    <span>鎖定桌位</span>
+                  </button>
+                  <button class="secondary-action" id="alignTablesButton" type="button" title="將接近同一列的桌位水平對齊">
+                    <span data-icon="alignHorizontal"></span>
+                    <span>水平對齊</span>
+                  </button>
                   <button class="secondary-action" id="fitCanvasButton" type="button" title="縮放並置中顯示所有桌子">
                     <span data-icon="target"></span>
                     <span>置中</span>
@@ -171,18 +206,6 @@
                 <div class="guest-stack" id="unassignedList"></div>
               </section>
 
-              <section class="rail-panel">
-                <div class="panel-header">
-                  <div>
-                    <h3>禮金紀錄</h3>
-                    <p id="giftSummary">NT$ 0</p>
-                  </div>
-                  <button class="icon-button" id="addGiftButton" type="button" aria-label="新增禮金" title="新增禮金">
-                    <span data-icon="plus"></span>
-                  </button>
-                </div>
-                <div class="gift-mini-list" id="giftMiniList"></div>
-              </section>
             </aside>
           </div>
         </section>
@@ -219,21 +242,71 @@
               <span data-icon="search"></span>
               <input id="invitationSearchInput" type="search" placeholder="搜尋姓名、電話、地址或 email" />
             </label>
-            <select id="invitationTypeFilter" aria-label="喜帖類型">
-              <option value="all">全部喜帖</option>
+            <select id="invitationTypeFilter" aria-label="喜帖篩選">
+              <option value="has">有喜帖</option>
+              <option value="none">無喜帖</option>
               <option value="paper">紙本</option>
               <option value="digital">電子</option>
             </select>
-            <select id="invitationDeliveryFilter" aria-label="寄送狀態">
-              <option value="all">全部寄送狀態</option>
+            <select id="invitationStatusFilter" aria-label="喜帖狀態">
+              <option value="all">全部狀態</option>
+              <option value="missing">待補資料</option>
+              <option value="ready">待寄送</option>
               <option value="sent">已寄送</option>
-              <option value="unsent">未寄送</option>
+              <option value="none">不需喜帖</option>
             </select>
           </div>
           <div class="data-table" id="invitationTable"></div>
         </section>
 
         <section class="view" id="giftsView" aria-label="禮金紀錄">
+          <section class="day-mode-panel" aria-label="婚禮當天快速禮金">
+            <div class="day-mode-header">
+              <div>
+                <p>婚禮當天模式</p>
+                <h3>快速禮金登記</h3>
+              </div>
+              <span id="quickGiftStatus">Enter 快速新增</span>
+            </div>
+            <form class="quick-gift-form" id="quickGiftForm">
+              <label>
+                姓名或電話
+                <input id="quickGiftNameInput" type="text" list="quickGiftOptions" autocomplete="off" placeholder="輸入姓名或電話" />
+                <datalist id="quickGiftOptions"></datalist>
+              </label>
+              <label>
+                金額
+                <input id="quickGiftAmountInput" type="number" min="0" step="100" placeholder="3600" />
+              </label>
+              <div class="quick-amounts" aria-label="常用禮金金額">
+                <button type="button" data-quick-amount="1200">1200</button>
+                <button type="button" data-quick-amount="1600">1600</button>
+                <button type="button" data-quick-amount="2000">2000</button>
+                <button type="button" data-quick-amount="2600">2600</button>
+                <button type="button" data-quick-amount="3200">3200</button>
+                <button type="button" data-quick-amount="3600">3600</button>
+                <button type="button" data-quick-amount="6000">6000</button>
+              </div>
+              <label>
+                方式
+                <select id="quickGiftMethodInput">
+                  <option>現金</option>
+                  <option>轉帳</option>
+                  <option>支票</option>
+                  <option>其他</option>
+                </select>
+              </label>
+              <label>
+                備註
+                <input id="quickGiftNoteInput" type="text" placeholder="桌次、代包、收禮人" />
+              </label>
+              <button class="primary-action" type="submit">
+                <span data-icon="cash"></span>
+                <span>快速登記</span>
+              </button>
+            </form>
+            <p class="quick-gift-hint" id="quickGiftHint">輸入賓客姓名或電話後，會自動提示桌次與重複禮金。</p>
+          </section>
           <div class="list-toolbar">
             <label class="search-field">
               <span data-icon="search"></span>
@@ -464,8 +537,74 @@
       </form>
     </dialog>
 
+    <dialog class="app-dialog compact-dialog" id="snapshotDialog">
+      <form class="dialog-form" method="dialog">
+        <div class="dialog-header">
+          <div>
+            <p>資料安全</p>
+            <h3>自動快照</h3>
+          </div>
+          <button class="icon-button" id="closeSnapshotDialogButton" type="button" aria-label="關閉">
+            <span data-icon="x"></span>
+          </button>
+        </div>
+        <div class="snapshot-list" id="snapshotList"></div>
+        <div class="dialog-actions">
+          <button class="secondary-action" id="cancelSnapshotButton" type="button">關閉</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="app-dialog" id="cloudSyncDialog">
+      <form class="dialog-form" id="cloudSyncForm" method="dialog">
+        <div class="dialog-header">
+          <div>
+            <p>跨裝置資料</p>
+            <h3>雲端同步</h3>
+          </div>
+          <button class="icon-button" id="closeCloudSyncDialogButton" type="button" aria-label="關閉">
+            <span data-icon="x"></span>
+          </button>
+        </div>
+        <div class="form-grid">
+          <label class="full-field">
+            Supabase Project URL
+            <input name="url" type="url" placeholder="https://xxxx.supabase.co" />
+          </label>
+          <label class="full-field">
+            Supabase anon public key
+            <input name="anonKey" type="password" placeholder="eyJhbGciOi..." autocomplete="off" />
+          </label>
+          <label>
+            同步代碼
+            <input name="syncKey" type="password" placeholder="只給自己和伴侶知道" autocomplete="off" />
+          </label>
+          <label class="checkbox-field">
+            <input name="autoSync" type="checkbox" />
+            <span>自動同步</span>
+          </label>
+        </div>
+        <p class="cloud-sync-message" id="cloudSyncMessage">尚未設定雲端同步。</p>
+        <div class="dialog-actions split-actions">
+          <button class="danger-action ghost-danger" id="clearCloudSyncButton" type="button">清除設定</button>
+          <button class="secondary-action" id="pullCloudButton" type="button">
+            <span data-icon="download"></span>
+            <span>下載雲端</span>
+          </button>
+          <button class="secondary-action" id="pushCloudButton" type="button">
+            <span data-icon="upload"></span>
+            <span>上傳本機</span>
+          </button>
+          <button class="primary-action" type="submit">
+            <span data-icon="check"></span>
+            <span>儲存設定</span>
+          </button>
+        </div>
+      </form>
+    </dialog>
+
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-    <script src="./app.js?v=wedding-planner-13"></script>
+    <script src="./app.js?v=wedding-planner-22"></script>
   </body>
 </html>
