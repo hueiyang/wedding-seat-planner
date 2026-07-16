@@ -635,34 +635,34 @@ function renderGuestTable() {
         const assignmentStatus = guestAssignmentStatus(guest);
         return `
           <div class="table-row guest-table" data-guest-row="${guest.id}">
-            <div class="guest-name-cell">
+            <div class="guest-name-cell" data-label="姓名">
               <button class="guest-name-button" data-edit-guest="${guest.id}" data-allow-delete="true" type="button" aria-label="編輯${escapeHTML(guest.name)}">
                 <strong class="guest-name-text" title="${escapeHTML(guest.name)}">${escapeHTML(guest.name)}</strong>
                 <span class="guest-phone-text" title="${escapeHTML(guest.phone || "未填電話")}">${escapeHTML(guest.phone || "未填電話")}</span>
               </button>
             </div>
-            <span class="cell-center">
+            <span class="cell-center" data-label="回覆">
               <select class="inline-field inline-select" data-guest-field="rsvp" data-guest-id="${guest.id}" aria-label="編輯${escapeHTML(guest.name)}的回覆狀態">
                 ${rsvpOptions(guest.rsvp)}
               </select>
             </span>
-            <span class="cell-center"><span class="status-badge ${assignmentStatus.className}">${assignmentStatus.label}</span></span>
-            <span class="cell-center">
+            <span class="cell-center" data-label="座位"><span class="status-badge ${assignmentStatus.className}">${assignmentStatus.label}</span></span>
+            <span class="cell-center" data-label="關係">
               <select class="inline-field inline-select relation-select ${guest.relation === "女方親友" ? "bride" : "groom"}" data-guest-field="relation" data-guest-id="${guest.id}" aria-label="編輯${escapeHTML(guest.name)}的關係">
                 ${relationOptions(guest.relation)}
               </select>
             </span>
-            <span class="cell-center">
+            <span class="cell-center" data-label="喜帖">
               <select class="inline-field inline-select invitation-select ${invitationMeta[guest.invitationType]?.className || "none"}" data-guest-field="invitationType" data-guest-id="${guest.id}" aria-label="編輯${escapeHTML(guest.name)}的喜帖">
                 ${invitationOptions(guest.invitationType)}
               </select>
             </span>
-            <span class="cell-center"><input class="inline-field inline-number" data-guest-field="companions" data-guest-id="${guest.id}" type="number" min="0" step="1" value="${Math.max(0, Number.parseInt(guest.companions, 10) || 0)}" aria-label="編輯${escapeHTML(guest.name)}的同行人數" /></span>
-            <span class="cell-center"><input class="inline-field inline-number" data-guest-field="childSeats" data-guest-id="${guest.id}" type="number" min="0" step="1" value="${guest.childSeats || 0}" aria-label="編輯${escapeHTML(guest.name)}的兒童座椅數量" /></span>
-            <span class="cell-center"><input class="inline-field inline-number" data-guest-field="vegetarianCount" data-guest-id="${guest.id}" type="number" min="0" step="1" value="${guest.vegetarianCount || 0}" aria-label="編輯${escapeHTML(guest.name)}的素食人數" /></span>
-            <span class="cell-left table-label-cell">${escapeHTML(tableLabel(guest.tableId))}</span>
-            <span class="cell-left note-preview" title="${escapeHTML(guest.note || "未填備註")}">${escapeHTML(guest.note || "未填備註")}</span>
-            <div class="row-actions">
+            <span class="cell-center" data-label="同行"><input class="inline-field inline-number" data-guest-field="companions" data-guest-id="${guest.id}" type="number" min="0" step="1" value="${Math.max(0, Number.parseInt(guest.companions, 10) || 0)}" aria-label="編輯${escapeHTML(guest.name)}的同行人數" /></span>
+            <span class="cell-center" data-label="兒童椅"><input class="inline-field inline-number" data-guest-field="childSeats" data-guest-id="${guest.id}" type="number" min="0" step="1" value="${guest.childSeats || 0}" aria-label="編輯${escapeHTML(guest.name)}的兒童座椅數量" /></span>
+            <span class="cell-center" data-label="素食"><input class="inline-field inline-number" data-guest-field="vegetarianCount" data-guest-id="${guest.id}" type="number" min="0" step="1" value="${guest.vegetarianCount || 0}" aria-label="編輯${escapeHTML(guest.name)}的素食人數" /></span>
+            <span class="cell-left table-label-cell" data-label="桌次">${escapeHTML(tableLabel(guest.tableId))}</span>
+            <span class="cell-left note-preview" data-label="備註" title="${escapeHTML(guest.note || "未填備註")}">${escapeHTML(guest.note || "未填備註")}</span>
+            <div class="row-actions" data-label="操作">
               <button class="icon-button" data-edit-guest="${guest.id}" data-allow-delete="true" type="button" aria-label="編輯">${icons.edit}</button>
               <button class="icon-button danger-icon" data-delete-guest="${guest.id}" type="button" aria-label="刪除${escapeHTML(guest.name)}" title="刪除">${icons.trash}</button>
             </div>
@@ -723,22 +723,22 @@ function invitationRowHTML(guest) {
       </select>`;
   return `
     <div class="table-row invitation-table" data-invitation-row="${guest.id}">
-      <div>
+      <div data-label="姓名">
         <strong>${escapeHTML(guest.name)}</strong>
         <div class="muted">${escapeHTML(tableLabel(guest.tableId))}</div>
       </div>
-      <span>
+      <span data-label="喜帖">
         <select class="inline-field inline-select invitation-select ${invitationMeta[guest.invitationType]?.className || "none"}" data-guest-field="invitationType" data-guest-id="${guest.id}" aria-label="編輯${escapeHTML(guest.name)}的喜帖">
           ${invitationOptions(guest.invitationType)}
         </select>
       </span>
-      <span><span class="invitation-status-badge ${status.className}" title="${escapeHTML(status.hint)}">${status.label}</span></span>
-      <span>${deliveryControl}</span>
-      <span><input class="inline-field inline-address" data-guest-field="address" data-guest-id="${guest.id}" type="text" value="${escapeHTML(guest.address || "")}" placeholder="紙本地址" aria-label="編輯${escapeHTML(guest.name)}的地址" /></span>
-      <span><input class="inline-field inline-email" data-guest-field="email" data-guest-id="${guest.id}" type="email" value="${escapeHTML(guest.email || "")}" placeholder="email@example.com" aria-label="編輯${escapeHTML(guest.name)}的 email" /></span>
-      <span><span class="relation-badge ${guest.relation === "女方親友" ? "bride" : "groom"}">${escapeHTML(guest.relation)}</span></span>
-      <span>${escapeHTML(guest.phone || "未填")}</span>
-      <span><input class="inline-field inline-note" data-guest-field="note" data-guest-id="${guest.id}" type="text" value="${escapeHTML(guest.note || "")}" placeholder="備註" aria-label="編輯${escapeHTML(guest.name)}的備註" /></span>
+      <span data-label="狀態"><span class="invitation-status-badge ${status.className}" title="${escapeHTML(status.hint)}">${status.label}</span></span>
+      <span data-label="寄送">${deliveryControl}</span>
+      <span data-label="地址"><input class="inline-field inline-address" data-guest-field="address" data-guest-id="${guest.id}" type="text" value="${escapeHTML(guest.address || "")}" placeholder="紙本地址" aria-label="編輯${escapeHTML(guest.name)}的地址" /></span>
+      <span data-label="Email"><input class="inline-field inline-email" data-guest-field="email" data-guest-id="${guest.id}" type="email" value="${escapeHTML(guest.email || "")}" placeholder="email@example.com" aria-label="編輯${escapeHTML(guest.name)}的 email" /></span>
+      <span data-label="關係"><span class="relation-badge ${guest.relation === "女方親友" ? "bride" : "groom"}">${escapeHTML(guest.relation)}</span></span>
+      <span data-label="電話">${escapeHTML(guest.phone || "未填")}</span>
+      <span data-label="備註"><input class="inline-field inline-note" data-guest-field="note" data-guest-id="${guest.id}" type="text" value="${escapeHTML(guest.note || "")}" placeholder="備註" aria-label="編輯${escapeHTML(guest.name)}的備註" /></span>
     </div>
   `;
 }
@@ -863,12 +863,12 @@ function renderGiftTable() {
       </div>
       ${gifts.length ? gifts.map((gift) => `
         <div class="table-row gift-table">
-          <strong>${escapeHTML(gift.name)}</strong>
-          <span>${money(gift.amount)}</span>
-          <span>${escapeHTML(gift.method)}</span>
-          <span class="muted">${escapeHTML(formatDate(gift.date))}</span>
-          <span class="muted">${escapeHTML(gift.note || "未填")}</span>
-          <div class="row-actions">
+          <strong data-label="姓名">${escapeHTML(gift.name)}</strong>
+          <span data-label="金額">${money(gift.amount)}</span>
+          <span data-label="方式">${escapeHTML(gift.method)}</span>
+          <span class="muted" data-label="日期">${escapeHTML(formatDate(gift.date))}</span>
+          <span class="muted" data-label="備註">${escapeHTML(gift.note || "未填")}</span>
+          <div class="row-actions" data-label="操作">
             <button class="icon-button" data-edit-gift="${gift.id}" type="button" aria-label="編輯">${icons.edit}</button>
             <button class="icon-button danger-icon" data-delete-gift="${gift.id}" type="button" aria-label="刪除${escapeHTML(gift.name)}的禮金紀錄" title="刪除">${icons.trash}</button>
           </div>

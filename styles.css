@@ -1982,12 +1982,19 @@ button > span {
   }
 
   .nav-list {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    -webkit-overflow-scrolling: touch;
   }
 
   .nav-item {
+    flex: 0 0 auto;
     justify-content: center;
-    padding: 0 8px;
+    min-width: 82px;
+    padding: 0 10px;
+    white-space: nowrap;
   }
 
   .event-card,
@@ -1996,25 +2003,65 @@ button > span {
   }
 
   .main-panel {
-    height: auto;
+    height: 100%;
     min-height: 0;
-    padding: 16px;
+    padding: 12px;
   }
 
   .topbar,
-  .workspace-toolbar,
-  .list-toolbar {
+  .workspace-toolbar {
     align-items: stretch;
     flex-direction: column;
   }
 
+  .topbar {
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .date-label {
+    display: none;
+  }
+
+  .topbar h2 {
+    font-size: 24px;
+  }
+
   .topbar-actions {
+    flex-wrap: nowrap;
     justify-content: flex-start;
+    width: 100%;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .topbar-actions > button,
+  .topbar-actions > .backup-actions {
+    flex: 0 0 auto;
   }
 
   .backup-actions,
   .quick-gift-form {
-    width: 100%;
+    width: auto;
+  }
+
+  .backup-actions {
+    flex-wrap: nowrap;
+  }
+
+  .metrics-grid {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    margin-bottom: 8px;
+    padding-bottom: 2px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .metric-card {
+    flex: 0 0 180px;
+    padding: 12px;
   }
 
   .quick-gift-form {
@@ -2031,6 +2078,25 @@ button > span {
     grid-template-columns: 1fr;
   }
 
+  .list-toolbar {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 8px;
+    padding: 8px;
+  }
+
+  .list-toolbar .search-field {
+    grid-column: 1 / -1;
+    min-width: 0;
+  }
+
+  .list-toolbar select,
+  .list-toolbar button {
+    width: 100%;
+    min-width: 0;
+  }
+
   .toolbar-cluster,
   .zoom-control {
     width: 100%;
@@ -2045,14 +2111,167 @@ button > span {
     min-height: 0;
   }
 
+  .data-table {
+    min-height: 0;
+  }
+
+  .table-scroll {
+    display: block;
+    padding: 10px;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .table-scroll > .table-row:not(.header) + .table-row:not(.header) {
+    margin-top: 10px;
+  }
+
   .table-row,
+  .table-row.guest-table,
+  .table-row.invitation-table,
   .table-row.gift-table {
+    display: block;
     grid-template-columns: 1fr;
-    align-items: start;
+    gap: 9px;
+    min-width: 0;
+    min-height: 0;
+    padding: 12px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+    box-shadow: 0 6px 16px rgba(30, 36, 32, 0.05);
   }
 
   .table-row.header {
     display: none;
+  }
+
+  .table-row:first-child {
+    border-top: 1px solid var(--line);
+  }
+
+  .table-row:not(.header) > [data-label] {
+    display: grid;
+    grid-template-columns: 74px minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .table-row:not(.header) > [data-label] + [data-label] {
+    margin-top: 9px;
+  }
+
+  .table-row:not(.header) > [data-label]::before {
+    content: attr(data-label);
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 950;
+  }
+
+  .table-row:not(.header) > .guest-name-cell[data-label],
+  .table-row:not(.header) > [data-label]:first-child {
+    grid-template-columns: 1fr;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .table-row:not(.header) > .guest-name-cell[data-label]::before,
+  .table-row:not(.header) > [data-label]:first-child::before {
+    display: none;
+  }
+
+  .table-row strong[data-label] {
+    color: var(--ink);
+    font-size: 16px;
+    line-height: 1.25;
+  }
+
+  .cell-center,
+  .cell-left {
+    justify-content: stretch;
+    text-align: left;
+  }
+
+  .table-row.guest-table > .cell-center,
+  .table-row.guest-table > .cell-left,
+  .table-row.guest-table > .guest-name-cell,
+  .table-row.guest-table > .row-actions {
+    align-self: auto;
+    min-height: 0;
+  }
+
+  .table-row.guest-table > .row-actions,
+  .table-row.guest-table.header > .cell-actions {
+    position: static;
+    right: auto;
+    z-index: auto;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .guest-name-button {
+    min-height: 0;
+  }
+
+  .guest-name-text,
+  .guest-phone-text,
+  .note-preview,
+  .table-label-cell {
+    white-space: normal;
+  }
+
+  .inline-number {
+    justify-self: end;
+    width: 92px;
+    max-width: 92px;
+  }
+
+  .inline-select,
+  .inline-address,
+  .inline-email,
+  .inline-note {
+    min-width: 0;
+  }
+
+  .row-actions[data-label] {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--line);
+  }
+
+  .row-actions[data-label]::before {
+    display: none;
+  }
+
+  .table-pagination {
+    min-height: 42px;
+    padding: 8px 10px;
+  }
+
+  .invitation-summary {
+    line-height: 1.45;
+  }
+
+  .table-manager {
+    gap: 10px;
+    padding-right: 0;
+  }
+
+  #giftsView.view.active {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #giftsView #giftTable {
+    flex: 0 0 auto;
+    min-height: 360px;
+  }
+
+  .table-card {
+    padding: 12px;
   }
 
   .form-grid {
