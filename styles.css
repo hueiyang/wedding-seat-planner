@@ -302,6 +302,10 @@ button > span {
   margin-bottom: 12px;
 }
 
+.topbar-title {
+  min-width: 0;
+}
+
 .date-label {
   margin-bottom: 5px;
   color: var(--muted);
@@ -319,6 +323,10 @@ button > span {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 9px;
+}
+
+.mobile-tools-button {
+  display: none;
 }
 
 .backup-actions {
@@ -2019,6 +2027,13 @@ button > span {
     margin-bottom: 8px;
   }
 
+  .topbar-title {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+  }
+
   .date-label {
     display: none;
   }
@@ -2027,18 +2042,43 @@ button > span {
     font-size: 24px;
   }
 
+  .mobile-tools-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 36px;
+    padding: 0 11px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    color: var(--ink);
+    background: var(--surface);
+    font-size: 13px;
+    font-weight: 900;
+  }
+
   .topbar-actions {
-    flex-wrap: nowrap;
-    justify-content: flex-start;
+    display: none;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
     width: 100%;
-    overflow-x: auto;
-    padding-bottom: 4px;
+    max-height: min(320px, 42dvh);
+    overflow: auto;
+    padding: 8px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
     -webkit-overflow-scrolling: touch;
+  }
+
+  .topbar.tools-open .topbar-actions {
+    display: grid;
   }
 
   .topbar-actions > button,
   .topbar-actions > .backup-actions {
-    flex: 0 0 auto;
+    width: 100%;
+    min-width: 0;
   }
 
   .backup-actions,
@@ -2047,21 +2087,44 @@ button > span {
   }
 
   .backup-actions {
-    flex-wrap: nowrap;
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .backup-actions .secondary-action {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .backup-status,
+  .cloud-status {
+    grid-column: 1 / -1;
+    padding: 0;
+    white-space: normal;
   }
 
   .metrics-grid {
-    display: flex;
-    gap: 8px;
-    overflow-x: auto;
+    display: block;
     margin-bottom: 8px;
-    padding-bottom: 2px;
-    -webkit-overflow-scrolling: touch;
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--muted);
+    font-size: 12.5px;
+    font-weight: 900;
+    line-height: 1.35;
+  }
+
+  .metrics-grid::before {
+    content: attr(data-mobile-summary);
   }
 
   .metric-card {
-    flex: 0 0 180px;
-    padding: 12px;
+    display: none;
   }
 
   .quick-gift-form {

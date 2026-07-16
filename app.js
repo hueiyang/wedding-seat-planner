@@ -157,8 +157,10 @@ let cloudSyncLastMessage = "";
 const guestInlineEditTimers = new Map();
 
 const els = {
+  topbar: document.querySelector(".topbar"),
   todayLabel: document.querySelector("#todayLabel"),
   viewTitle: document.querySelector("#viewTitle"),
+  mobileToolsButton: document.querySelector("#mobileToolsButton"),
   eventLabel: document.querySelector("#eventLabel"),
   eventName: document.querySelector("#eventName"),
   eventDate: document.querySelector("#eventDate"),
@@ -280,6 +282,7 @@ els.todayLabel.textContent = new Intl.DateTimeFormat("zh-Hant-TW", {
   day: "numeric",
   weekday: "long",
 }).format(new Date());
+document.body.dataset.view = currentView;
 
 bindEvents();
 renderAll();
@@ -290,6 +293,7 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
 }
 
 function bindEvents() {
+  els.mobileToolsButton.addEventListener("click", toggleMobileTools);
   els.navItems.forEach((item) => item.addEventListener("click", () => setView(item.dataset.view)));
   document.querySelectorAll("[data-view-jump]").forEach((button) => {
     button.addEventListener("click", () => setView(button.dataset.viewJump));
@@ -400,6 +404,8 @@ function bindEvents() {
 
 function setView(view, options = {}) {
   currentView = view;
+  document.body.dataset.view = view;
+  closeMobileTools();
   const titles = {
     seating: "座位圖",
     guests: "賓客名單",
@@ -415,6 +421,17 @@ function setView(view, options = {}) {
     els.assignmentFilter.value = options.assignment;
     renderGuestTable();
   }
+}
+
+function toggleMobileTools() {
+  const expanded = !els.topbar.classList.contains("tools-open");
+  els.topbar.classList.toggle("tools-open", expanded);
+  els.mobileToolsButton.setAttribute("aria-expanded", String(expanded));
+}
+
+function closeMobileTools() {
+  els.topbar.classList.remove("tools-open");
+  els.mobileToolsButton.setAttribute("aria-expanded", "false");
 }
 
 function renderAll() {
@@ -472,8 +489,9 @@ function renderMetrics() {
     { label: "禮金合計", value: money(giftTotal), note: `${state.gifts.length} 筆紀錄`, icon: "gift", bg: "var(--rose-soft)", color: "var(--plum)" },
   ];
 
+  els.metricsGrid.dataset.mobileSummary = `${totalPeople} 位 · 已回覆 ${replied}/${state.guests.length} · 未安排 ${unassigned} · 禮金 ${money(giftTotal)}`;
   els.metricsGrid.innerHTML = cards.map((card) => `
-    <article class="metric-card">
+    <article class="metric-card" data-label="${escapeHTML(card.label)}" data-value="${escapeHTML(card.value)}" data-note="${escapeHTML(card.note)}">
       <span>${card.label}</span>
       <strong>${card.value}</strong>
       <span class="metric-note">${card.note}</span>
