@@ -97,7 +97,6 @@ const seedState = {
     venue: "台北文華東方酒店 3F 宴會廳",
     avatar: "林",
     coupleName: "林小美 & 陳大明",
-    statusText: "本機自動保存",
   },
   venueItems: [
     { id: "stage", label: "舞台", icon: "stage", x: 900, y: 150, width: STAGE_WIDTH, height: STAGE_DEPTH },
@@ -168,7 +167,6 @@ const els = {
   accountName: document.querySelector("#accountName"),
   accountStatus: document.querySelector("#accountStatus"),
   openSettingsButton: document.querySelector("#openSettingsButton"),
-  openSettingsTopButton: document.querySelector("#openSettingsTopButton"),
   navItems: document.querySelectorAll(".nav-item"),
   views: document.querySelectorAll(".view"),
   metricsGrid: document.querySelector("#metricsGrid"),
@@ -307,7 +305,6 @@ function bindEvents() {
   els.snapshotButton.addEventListener("click", openSnapshotDialog);
   els.cloudSyncButton.addEventListener("click", openCloudSyncDialog);
   els.openSettingsButton.addEventListener("click", openSettingsDialog);
-  els.openSettingsTopButton.addEventListener("click", openSettingsDialog);
   els.addGuestButton.addEventListener("click", () => openGuestDialog());
   els.addTableButton.addEventListener("click", () => openTableDialog());
   els.fill30TablesButton.addEventListener("click", () => fillTablesToTarget(TARGET_TABLE_COUNT));
@@ -444,7 +441,20 @@ function renderEventInfo() {
   els.eventVenue.textContent = state.wedding.venue || seedState.wedding.venue;
   els.accountAvatar.textContent = (state.wedding.avatar || seedState.wedding.avatar).slice(0, 2);
   els.accountName.textContent = state.wedding.coupleName || seedState.wedding.coupleName;
-  els.accountStatus.textContent = state.wedding.statusText || seedState.wedding.statusText;
+  renderAccountStatus();
+}
+
+function renderAccountStatus() {
+  if (!els.accountStatus) return;
+  els.accountStatus.textContent = getSystemStatusText();
+}
+
+function getSystemStatusText() {
+  if (cloudSyncConfigured()) {
+    const syncedText = cloudSyncConfig.lastSyncedAt ? ` · ${formatDateTime(cloudSyncConfig.lastSyncedAt)}` : "";
+    return `${cloudSyncConfig.autoSync ? "雲端自動同步" : "雲端手動同步"}${syncedText}`;
+  }
+  return state.meta?.updatedAt ? `本機已保存 · ${formatDateTime(state.meta.updatedAt)}` : "本機自動保存";
 }
 
 function renderMetrics() {
@@ -1323,7 +1333,6 @@ function openSettingsDialog() {
   els.settingsForm.elements.venue.value = wedding.venue || "";
   els.settingsForm.elements.avatar.value = wedding.avatar || "";
   els.settingsForm.elements.coupleName.value = wedding.coupleName || "";
-  els.settingsForm.elements.statusText.value = wedding.statusText || "";
   els.settingsDialog.showModal();
 }
 
@@ -1335,15 +1344,15 @@ function saveSettingsFromForm(event) {
   event.preventDefault();
   const data = Object.fromEntries(new FormData(els.settingsForm));
   const coupleName = cleanText(data.coupleName) || seedState.wedding.coupleName;
+  const { statusText: _statusText, ...currentWedding } = state.wedding || {};
   state.wedding = {
-    ...state.wedding,
+    ...currentWedding,
     label: cleanText(data.label) || seedState.wedding.label,
     name: cleanText(data.name) || seedState.wedding.name,
     date: cleanText(data.date) || seedState.wedding.date,
     venue: cleanText(data.venue) || seedState.wedding.venue,
     avatar: firstCharacters(cleanText(data.avatar), 2) || firstCharacters(coupleName, 1) || seedState.wedding.avatar,
     coupleName,
-    statusText: cleanText(data.statusText) || seedState.wedding.statusText,
   };
   saveState({ snapshotReason: "更新基本資訊" });
   renderEventInfo();
@@ -2104,6 +2113,7 @@ function renderCloudSyncStatus(message = cloudSyncLastMessage) {
     ? `${cloudSyncConfig.autoSync ? "自動同步" : "手動同步"}${syncedText}`
     : "本機模式";
   els.cloudSyncStatus.classList.toggle("connected", configured);
+  renderAccountStatus();
   if (els.cloudSyncMessage) {
     els.cloudSyncMessage.textContent = message || (configured
       ? `已設定同步代碼。${cloudSyncConfig.autoSync ? "自動同步已啟用。" : "目前為手動同步。"}`
@@ -2398,6 +2408,7 @@ function saveState(options = {}) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   if (createSnapshot) maybeCreateAutoSnapshot(snapshotReason);
   markSaved(true);
+  renderAccountStatus();
   renderBackupStatus();
   syncLayoutSafetyControls();
   if (!skipCloudSync) scheduleCloudPush();
