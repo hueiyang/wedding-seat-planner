@@ -70,6 +70,7 @@ const icons = {
   stage: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 5h16v10H4z"/><path d="M8 19h8M12 15v4"/><path d="M7 9h10"/></svg>',
   mail: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m4 7 8 6 8-6"/></svg>',
   cloud: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17.5 19H8a5 5 0 1 1 1.3-9.8A6 6 0 0 1 21 11.5 3.8 3.8 0 0 1 17.5 19Z"/><path d="M12 12v5M9.5 14.5 12 12l2.5 2.5"/></svg>',
+  settings: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 6h10M18 6h2"/><circle cx="16" cy="6" r="2"/><path d="M4 12h2M10 12h10"/><circle cx="8" cy="12" r="2"/><path d="M4 18h12M20 18h0"/><circle cx="18" cy="18" r="2"/></svg>',
 };
 
 const rsvpMeta = {
@@ -90,9 +91,13 @@ const seedState = {
     lastRestoredAt: "",
   },
   wedding: {
+    label: "婚禮資訊",
     name: "文定 & 婚宴",
     date: "2026/11/21 18:00",
     venue: "台北文華東方酒店 3F 宴會廳",
+    avatar: "林",
+    coupleName: "林小美 & 陳大明",
+    statusText: "本機自動保存",
   },
   venueItems: [
     { id: "stage", label: "舞台", icon: "stage", x: 900, y: 150, width: STAGE_WIDTH, height: STAGE_DEPTH },
@@ -155,9 +160,15 @@ const guestInlineEditTimers = new Map();
 const els = {
   todayLabel: document.querySelector("#todayLabel"),
   viewTitle: document.querySelector("#viewTitle"),
+  eventLabel: document.querySelector("#eventLabel"),
   eventName: document.querySelector("#eventName"),
   eventDate: document.querySelector("#eventDate"),
   eventVenue: document.querySelector("#eventVenue"),
+  accountAvatar: document.querySelector("#accountAvatar"),
+  accountName: document.querySelector("#accountName"),
+  accountStatus: document.querySelector("#accountStatus"),
+  openSettingsButton: document.querySelector("#openSettingsButton"),
+  openSettingsTopButton: document.querySelector("#openSettingsTopButton"),
   navItems: document.querySelectorAll(".nav-item"),
   views: document.querySelectorAll(".view"),
   metricsGrid: document.querySelector("#metricsGrid"),
@@ -247,6 +258,10 @@ const els = {
   snapshotList: document.querySelector("#snapshotList"),
   closeSnapshotDialogButton: document.querySelector("#closeSnapshotDialogButton"),
   cancelSnapshotButton: document.querySelector("#cancelSnapshotButton"),
+  settingsDialog: document.querySelector("#settingsDialog"),
+  settingsForm: document.querySelector("#settingsForm"),
+  closeSettingsDialogButton: document.querySelector("#closeSettingsDialogButton"),
+  cancelSettingsButton: document.querySelector("#cancelSettingsButton"),
   cloudSyncDialog: document.querySelector("#cloudSyncDialog"),
   cloudSyncForm: document.querySelector("#cloudSyncForm"),
   closeCloudSyncDialogButton: document.querySelector("#closeCloudSyncDialogButton"),
@@ -291,6 +306,8 @@ function bindEvents() {
   els.restoreFile.addEventListener("change", handleRestoreFile);
   els.snapshotButton.addEventListener("click", openSnapshotDialog);
   els.cloudSyncButton.addEventListener("click", openCloudSyncDialog);
+  els.openSettingsButton.addEventListener("click", openSettingsDialog);
+  els.openSettingsTopButton.addEventListener("click", openSettingsDialog);
   els.addGuestButton.addEventListener("click", () => openGuestDialog());
   els.addTableButton.addEventListener("click", () => openTableDialog());
   els.fill30TablesButton.addEventListener("click", () => fillTablesToTarget(TARGET_TABLE_COUNT));
@@ -340,6 +357,8 @@ function bindEvents() {
   els.cancelConfirmButton.addEventListener("click", closeConfirmDialog);
   els.closeSnapshotDialogButton.addEventListener("click", closeSnapshotDialog);
   els.cancelSnapshotButton.addEventListener("click", closeSnapshotDialog);
+  els.closeSettingsDialogButton.addEventListener("click", closeSettingsDialog);
+  els.cancelSettingsButton.addEventListener("click", closeSettingsDialog);
   els.closeCloudSyncDialogButton.addEventListener("click", closeCloudSyncDialog);
   els.cloudSyncForm.addEventListener("submit", saveCloudSyncSettings);
   els.clearCloudSyncButton.addEventListener("click", confirmClearCloudSyncSettings);
@@ -349,6 +368,7 @@ function bindEvents() {
   els.guestForm.addEventListener("submit", saveGuestFromForm);
   els.tableForm.addEventListener("submit", saveTableFromForm);
   els.giftForm.addEventListener("submit", saveGiftFromForm);
+  els.settingsForm.addEventListener("submit", saveSettingsFromForm);
   els.confirmForm.addEventListener("submit", (event) => {
     event.preventDefault();
     if (pendingConfirmation) pendingConfirmation();
@@ -418,9 +438,13 @@ function renderAll() {
 }
 
 function renderEventInfo() {
-  els.eventName.textContent = state.wedding.name;
-  els.eventDate.textContent = state.wedding.date;
-  els.eventVenue.textContent = state.wedding.venue;
+  els.eventLabel.textContent = state.wedding.label || seedState.wedding.label;
+  els.eventName.textContent = state.wedding.name || seedState.wedding.name;
+  els.eventDate.textContent = state.wedding.date || seedState.wedding.date;
+  els.eventVenue.textContent = state.wedding.venue || seedState.wedding.venue;
+  els.accountAvatar.textContent = (state.wedding.avatar || seedState.wedding.avatar).slice(0, 2);
+  els.accountName.textContent = state.wedding.coupleName || seedState.wedding.coupleName;
+  els.accountStatus.textContent = state.wedding.statusText || seedState.wedding.statusText;
 }
 
 function renderMetrics() {
@@ -1288,6 +1312,43 @@ function assignGuestToTable(guestId, tableId) {
   showToast(table
     ? `已安排 ${guest.name} 到 ${tableLabel(tableId)}${nextOccupancy > table.capacity ? `（超過容量 ${nextOccupancy}/${table.capacity}）` : ""}`
     : `已將 ${guest.name} 移回待安排`);
+}
+
+function openSettingsDialog() {
+  const wedding = { ...seedState.wedding, ...(state.wedding || {}) };
+  els.settingsForm.reset();
+  els.settingsForm.elements.label.value = wedding.label || "";
+  els.settingsForm.elements.name.value = wedding.name || "";
+  els.settingsForm.elements.date.value = wedding.date || "";
+  els.settingsForm.elements.venue.value = wedding.venue || "";
+  els.settingsForm.elements.avatar.value = wedding.avatar || "";
+  els.settingsForm.elements.coupleName.value = wedding.coupleName || "";
+  els.settingsForm.elements.statusText.value = wedding.statusText || "";
+  els.settingsDialog.showModal();
+}
+
+function closeSettingsDialog() {
+  els.settingsDialog.close();
+}
+
+function saveSettingsFromForm(event) {
+  event.preventDefault();
+  const data = Object.fromEntries(new FormData(els.settingsForm));
+  const coupleName = cleanText(data.coupleName) || seedState.wedding.coupleName;
+  state.wedding = {
+    ...state.wedding,
+    label: cleanText(data.label) || seedState.wedding.label,
+    name: cleanText(data.name) || seedState.wedding.name,
+    date: cleanText(data.date) || seedState.wedding.date,
+    venue: cleanText(data.venue) || seedState.wedding.venue,
+    avatar: firstCharacters(cleanText(data.avatar), 2) || firstCharacters(coupleName, 1) || seedState.wedding.avatar,
+    coupleName,
+    statusText: cleanText(data.statusText) || seedState.wedding.statusText,
+  };
+  saveState({ snapshotReason: "更新基本資訊" });
+  renderEventInfo();
+  closeSettingsDialog();
+  showToast("基本資訊已更新");
 }
 
 function openGuestDialog(guest = {}, options = {}) {
@@ -2925,6 +2986,14 @@ function clamp(value, min, max) {
 
 function empty(text) {
   return `<div class="empty-state">${escapeHTML(text)}</div>`;
+}
+
+function cleanText(value = "") {
+  return String(value || "").trim().replace(/\s+/g, " ");
+}
+
+function firstCharacters(value = "", count = 1) {
+  return Array.from(String(value || "").trim()).slice(0, count).join("");
 }
 
 function escapeHTML(value = "") {

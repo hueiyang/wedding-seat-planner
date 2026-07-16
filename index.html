@@ -9,7 +9,7 @@
     <title>囍座位規劃</title>
     <link rel="manifest" href="./manifest.json" />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=wedding-planner-23" />
+    <link rel="stylesheet" href="./styles.css?v=wedding-planner-24" />
   </head>
   <body>
     <div class="app-shell">
@@ -46,17 +46,22 @@
         </nav>
 
         <section class="event-card" aria-label="婚禮資訊">
-          <p>婚禮資訊</p>
+          <div class="event-card-header">
+            <p id="eventLabel">婚禮資訊</p>
+            <button class="sidebar-icon-button" id="openSettingsButton" type="button" aria-label="編輯基本設定" title="編輯基本設定">
+              <span data-icon="settings"></span>
+            </button>
+          </div>
           <strong id="eventName">文定 & 婚宴</strong>
           <span id="eventDate">2026/11/21 18:00</span>
           <span id="eventVenue">台北文華東方酒店 3F 宴會廳</span>
         </section>
 
         <div class="account-card">
-          <span class="avatar">林</span>
+          <span class="avatar" id="accountAvatar">林</span>
           <div>
-            <strong>林小美 & 陳大明</strong>
-            <span>本機自動保存</span>
+            <strong id="accountName">林小美 & 陳大明</strong>
+            <span id="accountStatus">本機自動保存</span>
           </div>
         </div>
       </aside>
@@ -98,6 +103,10 @@
               <button class="secondary-action" id="cloudSyncButton" type="button">
                 <span data-icon="cloud"></span>
                 <span>雲端同步</span>
+              </button>
+              <button class="secondary-action" id="openSettingsTopButton" type="button">
+                <span data-icon="settings"></span>
+                <span>基本設定</span>
               </button>
               <span class="backup-status" id="backupStatus">尚未備份</span>
               <span class="cloud-status" id="cloudSyncStatus">本機模式</span>
@@ -555,6 +564,57 @@
       </form>
     </dialog>
 
+    <dialog class="app-dialog" id="settingsDialog">
+      <form class="dialog-form" id="settingsForm" method="dialog">
+        <div class="dialog-header">
+          <div>
+            <p>系統設定</p>
+            <h3>基本資訊</h3>
+          </div>
+          <button class="icon-button" id="closeSettingsDialogButton" type="button" aria-label="關閉">
+            <span data-icon="x"></span>
+          </button>
+        </div>
+        <div class="form-grid">
+          <label>
+            資訊標題
+            <input name="label" type="text" placeholder="婚禮資訊" />
+          </label>
+          <label>
+            婚禮名稱
+            <input name="name" type="text" placeholder="文定 & 婚宴" required />
+          </label>
+          <label>
+            日期時間
+            <input name="date" type="text" placeholder="2026/11/21 18:00" />
+          </label>
+          <label>
+            顯示頭像字
+            <input name="avatar" type="text" maxlength="2" placeholder="林" />
+          </label>
+          <label class="full-field">
+            地點
+            <input name="venue" type="text" placeholder="台北文華東方酒店 3F 宴會廳" />
+          </label>
+          <label>
+            顯示名稱
+            <input name="coupleName" type="text" placeholder="林小美 & 陳大明" />
+          </label>
+          <label>
+            狀態文字
+            <input name="statusText" type="text" placeholder="本機自動保存" />
+          </label>
+        </div>
+        <div class="dialog-actions">
+          <button class="secondary-action" id="cancelSettingsButton" type="button">取消</button>
+          <button class="primary-action" type="submit">
+            <span data-icon="check"></span>
+            <span>儲存設定</span>
+          </button>
+        </div>
+      </form>
+    </dialog>
+
     <dialog class="app-dialog" id="cloudSyncDialog">
       <form class="dialog-form" id="cloudSyncForm" method="dialog">
         <div class="dialog-header">
@@ -605,6 +665,6 @@
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-    <script src="./app.js?v=wedding-planner-22"></script>
+    <script src="./app.js?v=wedding-planner-24"></script>
   </body>
 </html>
