@@ -238,6 +238,13 @@ const els = {
   tableDialogTitle: document.querySelector("#tableDialogTitle"),
   closeTableDialogButton: document.querySelector("#closeTableDialogButton"),
   cancelTableButton: document.querySelector("#cancelTableButton"),
+  tableGuestsDialog: document.querySelector("#tableGuestsDialog"),
+  tableGuestsDialogKicker: document.querySelector("#tableGuestsDialogKicker"),
+  tableGuestsDialogTitle: document.querySelector("#tableGuestsDialogTitle"),
+  tableGuestsOverview: document.querySelector("#tableGuestsOverview"),
+  tableGuestsDetailList: document.querySelector("#tableGuestsDetailList"),
+  closeTableGuestsDialogButton: document.querySelector("#closeTableGuestsDialogButton"),
+  cancelTableGuestsButton: document.querySelector("#cancelTableGuestsButton"),
   giftDialog: document.querySelector("#giftDialog"),
   giftForm: document.querySelector("#giftForm"),
   giftDialogTitle: document.querySelector("#giftDialogTitle"),
@@ -362,6 +369,8 @@ function bindEvents() {
   els.cancelGuestButton.addEventListener("click", closeGuestDialog);
   els.closeTableDialogButton.addEventListener("click", closeTableDialog);
   els.cancelTableButton.addEventListener("click", closeTableDialog);
+  els.closeTableGuestsDialogButton.addEventListener("click", closeTableGuestsDialog);
+  els.cancelTableGuestsButton.addEventListener("click", closeTableGuestsDialog);
   els.closeGiftDialogButton.addEventListener("click", closeGiftDialog);
   els.cancelGiftButton.addEventListener("click", closeGiftDialog);
   els.cancelConfirmButton.addEventListener("click", closeConfirmDialog);
@@ -998,7 +1007,7 @@ function renderTableManager() {
     const seatStatus = tableSeatStatus({ ...table, occupancy });
     const specialCounts = tableSpecialCounts(table.id);
     return `
-      <article class="table-card">
+      <article class="table-card table-card-clickable" data-view-table-card="${table.id}" role="button" tabindex="0" aria-label="查看${escapeHTML(tableDisplayName(table))}賓客明細">
         <div class="table-card-header">
           <div>
             <strong class="table-name">${escapeHTML(tableDisplayName(table))}</strong>
@@ -1026,17 +1035,87 @@ function renderTableManager() {
     `;
   }).join("");
 
+  els.tableManager.querySelectorAll("[data-view-table-card]").forEach((card) => {
+    card.addEventListener("click", (event) => {
+      if (event.target.closest("button")) return;
+      openTableGuestsDialog(findTable(card.dataset.viewTableCard));
+    });
+    card.addEventListener("keydown", (event) => {
+      if (!["Enter", " "].includes(event.key)) return;
+      if (event.target.closest("button")) return;
+      event.preventDefault();
+      openTableGuestsDialog(findTable(card.dataset.viewTableCard));
+    });
+  });
   els.tableManager.querySelectorAll("[data-edit-table-card]").forEach((button) => {
-    button.addEventListener("click", () => openTableDialog(findTable(button.dataset.editTableCard)));
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      openTableDialog(findTable(button.dataset.editTableCard));
+    });
   });
   els.tableManager.querySelectorAll("[data-clear-table]").forEach((button) => {
     const table = findTable(button.dataset.clearTable);
-    button.addEventListener("click", () => confirmClearTable(table));
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      confirmClearTable(table);
+    });
   });
   els.tableManager.querySelectorAll("[data-delete-table]").forEach((button) => {
     const table = findTable(button.dataset.deleteTable);
-    button.addEventListener("click", () => confirmDeleteTable(table));
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      confirmDeleteTable(table);
+    });
   });
+}
+
+function openTableGuestsDialog(table) {
+  if (!table) return;
+  const guests = tableGuests(table.id);
+  const occupancy = tableOccupancy(table.id);
+  const available = table.capacity - occupancy;
+  const specialCounts = tableSpecialCounts(table.id);
+  const seatStatus = tableSeatStatus({ ...table, occupancy });
+  els.tableGuestsDialogKicker.textContent = table.alias || "桌次賓客";
+  els.tableGuestsDialogTitle.textContent = tableDisplayName(table);
+  els.tableGuestsOverview.innerHTML = `
+    <span class="table-status-badge ${seatStatus.className}">${seatStatus.icon}<span>${occupancy}/${table.capacity}</span></span>
+    <span>${guests.length} 筆名單</span>
+    <span>${available >= 0 ? `${available} 個空位` : `超過 ${Math.abs(available)} 位`}</span>
+    ${specialCounts.vegetarianCount ? `<span class="special-pill vegetarian">素 ${specialCounts.vegetarianCount}</span>` : ""}
+    ${specialCounts.childSeats ? `<span class="special-pill child">兒 ${specialCounts.childSeats}</span>` : ""}
+  `;
+  els.tableGuestsDetailList.innerHTML = guests.length
+    ? guests.map(tableGuestDetailRow).join("")
+    : empty("這桌目前沒有安排賓客。");
+  els.tableGuestsDialog.showModal();
+}
+
+function closeTableGuestsDialog() {
+  els.tableGuestsDialog.close();
+}
+
+function tableGuestDetailRow(guest) {
+  const companions = Number.parseInt(guest.companions, 10) || 0;
+  const vegetarianCount = Number.parseInt(guest.vegetarianCount, 10) || 0;
+  const childSeats = Number.parseInt(guest.childSeats, 10) || 0;
+  const relationClass = guest.relation === "女方親友" ? "bride" : "groom";
+  const relationShort = guest.relation.replace("親友", "");
+  const chips = [
+    `<span class="table-guest-pill relation ${relationClass}">${escapeHTML(relationShort)}</span>`,
+    `<span class="table-guest-pill people">${partySize(guest)} 位</span>`,
+    companions ? `<span class="table-guest-pill muted-pill">同行 ${companions}</span>` : "",
+    vegetarianCount ? `<span class="table-guest-pill vegetarian">素 ${vegetarianCount}</span>` : "",
+    childSeats ? `<span class="table-guest-pill child">兒 ${childSeats}</span>` : "",
+    guest.rsvp === "pending" ? `<span class="table-guest-pill pending">未回覆</span>` : "",
+  ].filter(Boolean).join("");
+
+  return `
+    <article class="table-guest-detail-row">
+      <strong>${escapeHTML(guest.name)}</strong>
+      <div class="table-guest-pill-row">${chips}</div>
+    </article>
+  `;
 }
 
 function renderGuestSelects() {
@@ -2887,9 +2966,15 @@ function inferSpecialCount(text, keyword) {
 }
 
 function tableOccupancy(tableId, exceptGuestId = null) {
-  return state.guests
-    .filter((guest) => guest.tableId === tableId && guest.id !== exceptGuestId && guest.rsvp !== "declined")
+  return tableGuests(tableId)
+    .filter((guest) => guest.id !== exceptGuestId)
     .reduce((sum, guest) => sum + partySize(guest), 0);
+}
+
+function tableGuests(tableId) {
+  return state.guests
+    .filter((guest) => guest.tableId === tableId && guest.rsvp !== "declined")
+    .sort((a, b) => rsvpSort(a) - rsvpSort(b) || a.name.localeCompare(b.name, "zh-Hant"));
 }
 
 function partySize(guest) {
@@ -2897,8 +2982,7 @@ function partySize(guest) {
 }
 
 function tableSpecialCounts(tableId) {
-  return state.guests
-    .filter((guest) => guest.tableId === tableId && guest.rsvp !== "declined")
+  return tableGuests(tableId)
     .reduce((counts, guest) => ({
       vegetarianCount: counts.vegetarianCount + (Number.parseInt(guest.vegetarianCount, 10) || 0),
       childSeats: counts.childSeats + (Number.parseInt(guest.childSeats, 10) || 0),

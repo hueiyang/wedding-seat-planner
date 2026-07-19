@@ -9,7 +9,7 @@
     <title>囍座位規劃</title>
     <link rel="manifest" href="./manifest.json" />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=wedding-planner-30" />
+    <link rel="stylesheet" href="./styles.css?v=wedding-planner-31" />
   </head>
   <body>
     <div class="app-shell">
@@ -492,6 +492,25 @@
       </form>
     </dialog>
 
+    <dialog class="app-dialog compact-dialog table-guests-dialog" id="tableGuestsDialog">
+      <form class="dialog-form" method="dialog">
+        <div class="dialog-header">
+          <div>
+            <p id="tableGuestsDialogKicker">桌次賓客</p>
+            <h3 id="tableGuestsDialogTitle">桌次明細</h3>
+          </div>
+          <button class="icon-button" id="closeTableGuestsDialogButton" type="button" aria-label="關閉">
+            <span data-icon="x"></span>
+          </button>
+        </div>
+        <div class="table-guests-overview" id="tableGuestsOverview"></div>
+        <div class="table-guests-detail-list" id="tableGuestsDetailList"></div>
+        <div class="dialog-actions">
+          <button class="secondary-action" id="cancelTableGuestsButton" type="button">關閉</button>
+        </div>
+      </form>
+    </dialog>
+
     <dialog class="app-dialog compact-dialog" id="giftDialog">
       <form class="dialog-form" id="giftForm" method="dialog">
         <div class="dialog-header">
@@ -672,6 +691,6 @@
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-    <script src="./app.js?v=wedding-planner-30"></script>
+    <script src="./app.js?v=wedding-planner-31"></script>
   </body>
 </html>

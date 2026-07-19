@@ -1694,6 +1694,22 @@ button > span {
   padding: 14px;
 }
 
+.table-card-clickable {
+  cursor: pointer;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+}
+
+.table-card-clickable:hover {
+  border-color: rgba(47, 109, 88, 0.28);
+  box-shadow: 0 10px 26px rgba(30, 36, 32, 0.08);
+  transform: translateY(-1px);
+}
+
+.table-card-clickable:focus-visible {
+  outline: 3px solid rgba(47, 109, 88, 0.18);
+  outline-offset: 3px;
+}
+
 .table-card-header {
   justify-content: space-between;
   margin-bottom: 14px;
@@ -1730,6 +1746,95 @@ button > span {
   display: flex;
   gap: 8px;
   margin-top: 14px;
+}
+
+.table-guests-overview {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.table-guests-detail-list {
+  display: grid;
+  gap: 8px;
+  max-height: min(54dvh, 460px);
+  overflow: auto;
+  padding-right: 2px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.table-guest-detail-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) minmax(0, 1.6fr);
+  align-items: center;
+  gap: 10px;
+  min-height: 46px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.table-guest-detail-row strong {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 950;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.table-guest-pill-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.table-guest-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 22px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
+.table-guest-pill.relation.groom,
+.table-guest-pill.child {
+  color: #23526c;
+  background: #eaf5fb;
+}
+
+.table-guest-pill.relation.bride {
+  color: var(--plum);
+  background: #f6e8f0;
+}
+
+.table-guest-pill.people {
+  color: var(--ink);
+  background: #fff;
+}
+
+.table-guest-pill.vegetarian {
+  color: var(--sage-deep);
+  background: #e1f3e7;
+}
+
+.table-guest-pill.pending {
+  color: #8b481c;
+  background: #fff1df;
 }
 
 .mini-button {
