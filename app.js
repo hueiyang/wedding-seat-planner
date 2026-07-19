@@ -189,6 +189,9 @@ const els = {
   unassignedList: document.querySelector("#unassignedList"),
   unassignedCount: document.querySelector("#unassignedCount"),
   focusUnassignedButton: document.querySelector("#focusUnassignedButton"),
+  guestListToolbar: document.querySelector("#guestListToolbar"),
+  guestFilterButton: document.querySelector("#guestFilterButton"),
+  guestFilterPanel: document.querySelector("#guestFilterPanel"),
   guestSearchInput: document.querySelector("#guestSearchInput"),
   rsvpFilter: document.querySelector("#rsvpFilter"),
   assignmentFilter: document.querySelector("#assignmentFilter"),
@@ -329,6 +332,7 @@ function bindEvents() {
   els.showNamesToggle.addEventListener("change", renderSeating);
   els.focusUnassignedButton.addEventListener("click", () => setView("guests", { assignment: "unassigned" }));
   els.unassignedSearchInput.addEventListener("input", renderUnassigned);
+  els.guestFilterButton.addEventListener("click", toggleGuestFilters);
   els.guestSearchInput.addEventListener("input", renderGuestTable);
   els.rsvpFilter.addEventListener("change", renderGuestTable);
   els.assignmentFilter.addEventListener("change", renderGuestTable);
@@ -406,6 +410,7 @@ function setView(view, options = {}) {
   currentView = view;
   document.body.dataset.view = view;
   closeMobileTools();
+  closeGuestFilters();
   const titles = {
     seating: "座位圖",
     guests: "賓客名單",
@@ -432,6 +437,17 @@ function toggleMobileTools() {
 function closeMobileTools() {
   els.topbar.classList.remove("tools-open");
   els.mobileToolsButton.setAttribute("aria-expanded", "false");
+}
+
+function toggleGuestFilters() {
+  const expanded = !els.guestListToolbar.classList.contains("filters-open");
+  els.guestListToolbar.classList.toggle("filters-open", expanded);
+  els.guestFilterButton.setAttribute("aria-expanded", String(expanded));
+}
+
+function closeGuestFilters() {
+  els.guestListToolbar.classList.remove("filters-open");
+  els.guestFilterButton.setAttribute("aria-expanded", "false");
 }
 
 function renderAll() {
@@ -623,6 +639,7 @@ function renderGuestTable() {
   const rsvp = els.rsvpFilter.value;
   const assignment = els.assignmentFilter.value;
   const relation = els.relationFilter.value;
+  updateGuestFilterButton();
   const rows = state.guests
     .filter((guest) => rsvp === "all" || guest.rsvp === rsvp)
     .filter((guest) => relation === "all" || guest.relation === relation)
@@ -653,6 +670,7 @@ function renderGuestTable() {
         const assignmentStatus = guestAssignmentStatus(guest);
         return `
           <div class="table-row guest-table" data-guest-row="${guest.id}">
+            ${mobileGuestSummaryButton(guest, assignmentStatus)}
             <div class="guest-name-cell" data-label="姓名">
               <button class="guest-name-button" data-edit-guest="${guest.id}" data-allow-delete="true" type="button" aria-label="編輯${escapeHTML(guest.name)}">
                 <strong class="guest-name-text" title="${escapeHTML(guest.name)}">${escapeHTML(guest.name)}</strong>
@@ -694,6 +712,48 @@ function renderGuestTable() {
   `;
   bindGuestInlineEdits(els.guestTable);
   bindGuestActions(els.guestTable);
+}
+
+function updateGuestFilterButton() {
+  const activeCount = [
+    els.rsvpFilter.value !== "all",
+    els.assignmentFilter.value !== "all",
+    els.relationFilter.value !== "all",
+  ].filter(Boolean).length;
+  const label = activeCount ? `篩選 ${activeCount}` : "篩選";
+  els.guestFilterButton.querySelector("[data-filter-label]").textContent = label;
+  els.guestFilterButton.classList.toggle("has-filters", activeCount > 0);
+  els.guestFilterButton.setAttribute("aria-label", activeCount ? `已套用 ${activeCount} 個篩選` : "開啟賓客篩選");
+}
+
+function mobileGuestSummaryButton(guest, assignmentStatus) {
+  const tableText = tableLabel(guest.tableId);
+  const phoneOrGroup = guest.phone || guest.group || "未填電話";
+  const invitation = invitationMeta[guest.invitationType]?.label || "無";
+  const badges = [
+    mobileGuestBadge(rsvpMeta[guest.rsvp].label, `rsvp ${rsvpMeta[guest.rsvp].className}`),
+    mobileGuestBadge(assignmentStatus.label, `assignment ${assignmentStatus.className}`),
+    mobileGuestBadge(guest.relation.replace("親友", ""), guest.relation === "女方親友" ? "relation bride" : "relation groom"),
+    guest.invitationType !== "none" ? mobileGuestBadge(invitation, `invitation ${invitationMeta[guest.invitationType]?.className || "none"}`) : "",
+    guest.vegetarianCount ? mobileGuestBadge(`素${guest.vegetarianCount}`, "special vegetarian") : "",
+    guest.childSeats ? mobileGuestBadge(`童${guest.childSeats}`, "special child") : "",
+  ].filter(Boolean).join("");
+
+  return `
+    <button class="mobile-guest-card" data-edit-guest="${guest.id}" data-allow-delete="true" type="button" aria-label="編輯${escapeHTML(guest.name)}">
+      <span class="mobile-guest-main">
+        <strong>${escapeHTML(guest.name)}</strong>
+        <span>${escapeHTML(phoneOrGroup)}</span>
+      </span>
+      <span class="mobile-guest-count">${partySize(guest)} 位</span>
+      <span class="mobile-guest-badges">${badges}</span>
+      <span class="mobile-guest-table" title="${escapeHTML(tableText)}">${escapeHTML(tableText)}</span>
+    </button>
+  `;
+}
+
+function mobileGuestBadge(label, className) {
+  return `<span class="mobile-guest-badge ${className}">${escapeHTML(label)}</span>`;
 }
 
 function renderInvitationTable() {

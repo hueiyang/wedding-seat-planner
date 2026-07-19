@@ -9,7 +9,7 @@
     <title>囍座位規劃</title>
     <link rel="manifest" href="./manifest.json" />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=wedding-planner-28" />
+    <link rel="stylesheet" href="./styles.css?v=wedding-planner-29" />
   </head>
   <body>
     <div class="app-shell">
@@ -220,27 +220,33 @@
         </section>
 
         <section class="view" id="guestsView" aria-label="賓客名單">
-          <div class="list-toolbar">
+          <div class="list-toolbar guest-list-toolbar" id="guestListToolbar">
             <label class="search-field">
               <span data-icon="search"></span>
               <input id="guestSearchInput" type="search" placeholder="搜尋姓名、電話、標籤或備註" />
             </label>
-            <select id="rsvpFilter" aria-label="回覆狀態">
-              <option value="all">全部回覆</option>
-              <option value="confirmed">已回覆</option>
-              <option value="pending">未回覆</option>
-              <option value="declined">不參加</option>
-            </select>
-            <select id="assignmentFilter" aria-label="座位狀態">
-              <option value="all">全部座位</option>
-              <option value="assigned">已安排</option>
-              <option value="unassigned">未安排</option>
-            </select>
-            <select id="relationFilter" aria-label="關係">
-              <option value="all">全部關係</option>
-              <option value="男方親友">男方親友</option>
-              <option value="女方親友">女方親友</option>
-            </select>
+            <button class="secondary-action guest-filter-button" id="guestFilterButton" type="button" aria-controls="guestFilterPanel" aria-expanded="false">
+              <span data-icon="settings"></span>
+              <span data-filter-label>篩選</span>
+            </button>
+            <div class="guest-filter-panel" id="guestFilterPanel">
+              <select id="rsvpFilter" aria-label="回覆狀態">
+                <option value="all">全部回覆</option>
+                <option value="confirmed">已回覆</option>
+                <option value="pending">未回覆</option>
+                <option value="declined">不參加</option>
+              </select>
+              <select id="assignmentFilter" aria-label="座位狀態">
+                <option value="all">全部座位</option>
+                <option value="assigned">已安排</option>
+                <option value="unassigned">未安排</option>
+              </select>
+              <select id="relationFilter" aria-label="關係">
+                <option value="all">全部關係</option>
+                <option value="男方親友">男方親友</option>
+                <option value="女方親友">女方親友</option>
+              </select>
+            </div>
           </div>
           <div class="data-table" id="guestTable"></div>
         </section>
@@ -661,6 +667,6 @@
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-    <script src="./app.js?v=wedding-planner-28"></script>
+    <script src="./app.js?v=wedding-planner-29"></script>
   </body>
 </html>
