@@ -71,6 +71,7 @@ const icons = {
   mail: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m4 7 8 6 8-6"/></svg>',
   cloud: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17.5 19H8a5 5 0 1 1 1.3-9.8A6 6 0 0 1 21 11.5 3.8 3.8 0 0 1 17.5 19Z"/><path d="M12 12v5M9.5 14.5 12 12l2.5 2.5"/></svg>',
   settings: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 6h10M18 6h2"/><circle cx="16" cy="6" r="2"/><path d="M4 12h2M10 12h10"/><circle cx="8" cy="12" r="2"/><path d="M4 18h12M20 18h0"/><circle cx="18" cy="18" r="2"/></svg>',
+  menu: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
 };
 
 const rsvpMeta = {
@@ -158,8 +159,11 @@ const guestInlineEditTimers = new Map();
 
 const els = {
   topbar: document.querySelector(".topbar"),
+  sidebar: document.querySelector(".sidebar"),
   todayLabel: document.querySelector("#todayLabel"),
   viewTitle: document.querySelector("#viewTitle"),
+  mobileNavButton: document.querySelector("#mobileNavButton"),
+  mobileNavLabel: document.querySelector("#mobileNavLabel"),
   mobileToolsButton: document.querySelector("#mobileToolsButton"),
   eventLabel: document.querySelector("#eventLabel"),
   eventName: document.querySelector("#eventName"),
@@ -296,6 +300,7 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
 }
 
 function bindEvents() {
+  els.mobileNavButton.addEventListener("click", toggleMobileNav);
   els.mobileToolsButton.addEventListener("click", toggleMobileTools);
   els.navItems.forEach((item) => item.addEventListener("click", () => setView(item.dataset.view)));
   document.querySelectorAll("[data-view-jump]").forEach((button) => {
@@ -409,6 +414,7 @@ function bindEvents() {
 function setView(view, options = {}) {
   currentView = view;
   document.body.dataset.view = view;
+  closeMobileNav();
   closeMobileTools();
   closeGuestFilters();
   const titles = {
@@ -419,6 +425,7 @@ function setView(view, options = {}) {
     tables: "桌次管理",
   };
   els.viewTitle.textContent = titles[view];
+  els.mobileNavLabel.textContent = titles[view];
   els.navItems.forEach((item) => item.classList.toggle("active", item.dataset.view === view));
   els.views.forEach((section) => section.classList.toggle("active", section.id === `${view}View`));
 
@@ -428,8 +435,21 @@ function setView(view, options = {}) {
   }
 }
 
+function toggleMobileNav() {
+  const expanded = !els.sidebar.classList.contains("nav-open");
+  if (expanded) closeMobileTools();
+  els.sidebar.classList.toggle("nav-open", expanded);
+  els.mobileNavButton.setAttribute("aria-expanded", String(expanded));
+}
+
+function closeMobileNav() {
+  els.sidebar.classList.remove("nav-open");
+  els.mobileNavButton.setAttribute("aria-expanded", "false");
+}
+
 function toggleMobileTools() {
   const expanded = !els.topbar.classList.contains("tools-open");
+  if (expanded) closeMobileNav();
   els.topbar.classList.toggle("tools-open", expanded);
   els.mobileToolsButton.setAttribute("aria-expanded", String(expanded));
 }
