@@ -398,7 +398,7 @@ function bindEvents() {
   els.undoLayoutButton.addEventListener("click", undoLayoutChange);
   els.redoLayoutButton.addEventListener("click", redoLayoutChange);
   els.alignTablesButton.addEventListener("click", alignTablesHorizontally);
-  els.resetLayoutButton.addEventListener("click", resetTableLayout);
+  els.resetLayoutButton.addEventListener("click", confirmResetTableLayout);
   els.showNamesToggle.addEventListener("change", renderSeating);
   els.focusUnassignedButton.addEventListener("click", () => setView("guests", { assignment: "unassigned" }));
   els.unassignedSearchInput.addEventListener("input", renderUnassigned);
@@ -2183,6 +2183,17 @@ function closeConfirmDialog() {
   els.confirmDialog.close();
 }
 
+function confirmResetTableLayout() {
+  openConfirm({
+    kicker: "重整桌位",
+    title: "重新排列所有桌位與場地物件？",
+    message: "這會改變目前桌子、舞台與禮金台的位置。若只是想看見所有桌子，請使用「置中」。",
+    icon: icons.refresh,
+    actionLabel: "確認重整",
+    onConfirm: resetTableLayout,
+  });
+}
+
 function resetTableLayout() {
   recordLayoutHistory("重整桌位");
   autoArrangeTables();
@@ -3387,14 +3398,18 @@ function scrollCanvasToPoint(x, y) {
   els.seatingCanvas.scrollTop = Math.max(0, Math.round(y * zoom - els.seatingCanvas.clientHeight / 2));
 }
 
-function layoutBoundsFromState() {
+function layoutBoundsFromState(options = {}) {
+  const { includeVenue = true, includeTables = true } = options;
   const items = [
-    ...state.venueItems.map((item) => ({ ...item, width: item.width || 140, height: item.height || 44 })),
-    ...state.tables.map((table) => {
+    ...(includeVenue ? state.venueItems.map((item) => ({ ...item, width: item.width || 140, height: item.height || 44 })) : []),
+    ...(includeTables ? state.tables.map((table) => {
       const size = tableVisualSize(tableGuests(table.id).length);
       return { ...table, width: size, height: size };
-    }),
+    }) : []),
   ];
+  if (!items.length) {
+    return { left: Infinity, top: Infinity, right: 0, bottom: 0 };
+  }
   return items.reduce((bounds, item) => ({
     left: Math.min(bounds.left, item.x - item.width / 2),
     top: Math.min(bounds.top, item.y - item.height / 2),
@@ -3420,7 +3435,7 @@ function renderedLayoutBounds() {
 }
 
 function fitCanvasToLayout() {
-  const bounds = renderedLayoutBounds();
+  const bounds = layoutBoundsFromState({ includeVenue: false, includeTables: true });
   if (!Number.isFinite(bounds.left)) return;
   const padding = 72;
   const width = Math.max(1, bounds.right - bounds.left);
@@ -3431,10 +3446,11 @@ function fitCanvasToLayout() {
     (els.seatingCanvas.clientHeight - padding * 2) / height
   ));
   state.canvas.zoom = zoom;
-  saveState();
   renderSeating();
   scrollCanvasToPoint(bounds.left + width / 2, bounds.top + height / 2);
-  showToast(`已置中顯示所有桌子（${Math.round(zoom * 100)}%）`);
+  markSaved(true);
+  renderAccountStatus();
+  showToast(`已調整視角顯示所有桌子（${Math.round(zoom * 100)}%）`);
 }
 
 function expandCanvasForPoint(x, y) {
