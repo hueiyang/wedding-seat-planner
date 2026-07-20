@@ -2778,6 +2778,14 @@ button > span {
     min-height: 0;
   }
 
+  #seatingView .right-rail {
+    display: none;
+  }
+
+  #seatingView .planner-layout {
+    grid-template-columns: 1fr;
+  }
+
   .data-table {
     min-height: 0;
   }
