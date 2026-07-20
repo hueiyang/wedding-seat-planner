@@ -9,7 +9,7 @@
     <title>囍座位規劃</title>
     <link rel="manifest" href="./manifest.json" />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=wedding-planner-50" />
+    <link rel="stylesheet" href="./styles.css?v=wedding-planner-51" />
   </head>
   <body>
     <div class="app-shell">
@@ -257,24 +257,30 @@
         </section>
 
         <section class="view" id="invitationsView" aria-label="喜帖管理">
-          <div class="list-toolbar">
+          <div class="list-toolbar invitation-list-toolbar" id="invitationListToolbar">
             <label class="search-field">
               <span data-icon="search"></span>
               <input id="invitationSearchInput" type="search" placeholder="搜尋姓名、電話、地址或 email" />
             </label>
-            <select id="invitationTypeFilter" aria-label="喜帖篩選">
-              <option value="has">有喜帖</option>
-              <option value="none">無喜帖</option>
-              <option value="paper">紙本</option>
-              <option value="digital">電子</option>
-            </select>
-            <select id="invitationStatusFilter" aria-label="喜帖狀態">
-              <option value="all">全部狀態</option>
-              <option value="missing">待補資料</option>
-              <option value="ready">待寄送</option>
-              <option value="sent">已寄送</option>
-              <option value="none">不需喜帖</option>
-            </select>
+            <button class="secondary-action invitation-filter-button" id="invitationFilterButton" type="button" aria-controls="invitationFilterPanel" aria-expanded="false">
+              <span data-icon="settings"></span>
+              <span data-filter-label>篩選</span>
+            </button>
+            <div class="invitation-filter-panel" id="invitationFilterPanel">
+              <select id="invitationTypeFilter" aria-label="喜帖篩選">
+                <option value="has">有喜帖</option>
+                <option value="none">無喜帖</option>
+                <option value="paper">紙本</option>
+                <option value="digital">電子</option>
+              </select>
+              <select id="invitationStatusFilter" aria-label="喜帖狀態">
+                <option value="all">全部狀態</option>
+                <option value="missing">待補資料</option>
+                <option value="ready">待寄送</option>
+                <option value="sent">已寄送</option>
+                <option value="none">不需喜帖</option>
+              </select>
+            </div>
           </div>
           <div class="data-table" id="invitationTable"></div>
         </section>
@@ -692,6 +698,6 @@
     <div class="canvas-tooltip" id="canvasTooltip" role="tooltip" hidden></div>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-    <script src="./app.js?v=wedding-planner-50"></script>
+    <script src="./app.js?v=wedding-planner-51"></script>
   </body>
 </html>

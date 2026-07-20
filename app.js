@@ -246,6 +246,9 @@ const els = {
   assignmentFilter: document.querySelector("#assignmentFilter"),
   relationFilter: document.querySelector("#relationFilter"),
   guestTable: document.querySelector("#guestTable"),
+  invitationListToolbar: document.querySelector("#invitationListToolbar"),
+  invitationFilterButton: document.querySelector("#invitationFilterButton"),
+  invitationFilterPanel: document.querySelector("#invitationFilterPanel"),
   invitationSearchInput: document.querySelector("#invitationSearchInput"),
   invitationTypeFilter: document.querySelector("#invitationTypeFilter"),
   invitationStatusFilter: document.querySelector("#invitationStatusFilter"),
@@ -407,6 +410,7 @@ function bindEvents() {
   els.rsvpFilter.addEventListener("change", renderGuestTable);
   els.assignmentFilter.addEventListener("change", renderGuestTable);
   els.relationFilter.addEventListener("change", renderGuestTable);
+  els.invitationFilterButton.addEventListener("click", toggleInvitationFilters);
   els.invitationSearchInput.addEventListener("input", renderInvitationTable);
   els.invitationTypeFilter.addEventListener("change", renderInvitationTable);
   els.invitationStatusFilter.addEventListener("change", renderInvitationTable);
@@ -502,6 +506,7 @@ function setView(view, options = {}) {
   closeMobileNav();
   closeMobileTools();
   closeGuestFilters();
+  closeInvitationFilters();
   const titles = {
     seating: "座位圖",
     guests: "賓客名單",
@@ -553,6 +558,17 @@ function toggleGuestFilters() {
 function closeGuestFilters() {
   els.guestListToolbar.classList.remove("filters-open");
   els.guestFilterButton.setAttribute("aria-expanded", "false");
+}
+
+function toggleInvitationFilters() {
+  const expanded = !els.invitationListToolbar.classList.contains("filters-open");
+  els.invitationListToolbar.classList.toggle("filters-open", expanded);
+  els.invitationFilterButton.setAttribute("aria-expanded", String(expanded));
+}
+
+function closeInvitationFilters() {
+  els.invitationListToolbar.classList.remove("filters-open");
+  els.invitationFilterButton.setAttribute("aria-expanded", "false");
 }
 
 function renderAll() {
@@ -939,6 +955,17 @@ function updateGuestFilterButton() {
   els.guestFilterButton.setAttribute("aria-label", activeCount ? `已套用 ${activeCount} 個篩選` : "開啟賓客篩選");
 }
 
+function updateInvitationFilterButton() {
+  const activeCount = [
+    els.invitationTypeFilter.value !== "has",
+    els.invitationStatusFilter.value !== "all",
+  ].filter(Boolean).length;
+  const label = activeCount ? `篩選 ${activeCount}` : "篩選";
+  els.invitationFilterButton.querySelector("[data-filter-label]").textContent = label;
+  els.invitationFilterButton.classList.toggle("has-filters", activeCount > 0);
+  els.invitationFilterButton.setAttribute("aria-label", activeCount ? `已套用 ${activeCount} 個喜帖篩選` : "開啟喜帖篩選");
+}
+
 function mobileGuestSummaryButton(guest, assignmentStatus) {
   const tableText = tableLabel(guest.tableId);
   const phoneOrGroup = guest.phone || guest.group || "未填電話";
@@ -973,6 +1000,7 @@ function renderInvitationTable() {
   const query = els.invitationSearchInput.value.trim().toLowerCase();
   const type = els.invitationTypeFilter.value;
   const status = els.invitationStatusFilter.value;
+  updateInvitationFilterButton();
   const rows = state.guests
     .filter((guest) => invitationTypeMatchesFilter(guest, type))
     .filter((guest) => status === "all" || invitationStatusFor(guest).key === status)

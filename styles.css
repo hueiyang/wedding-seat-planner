@@ -1638,18 +1638,21 @@ button > span {
 }
 
 .guest-filter-button,
+.invitation-filter-button,
 .mobile-guest-card {
   display: none;
 }
 
-.guest-filter-panel {
+.guest-filter-panel,
+.invitation-filter-panel {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 12px;
 }
 
-.guest-filter-button.has-filters {
+.guest-filter-button.has-filters,
+.invitation-filter-button.has-filters {
   color: var(--sage-deep);
   background: var(--sage-soft);
   border-color: rgba(47, 109, 88, 0.28);
@@ -2698,16 +2701,19 @@ button > span {
     min-width: 0;
   }
 
-  .guest-list-toolbar {
+  .guest-list-toolbar,
+  .invitation-list-toolbar {
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
   }
 
-  .guest-list-toolbar .search-field {
+  .guest-list-toolbar .search-field,
+  .invitation-list-toolbar .search-field {
     grid-column: auto;
   }
 
-  .guest-filter-button {
+  .guest-filter-button,
+  .invitation-filter-button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -2718,12 +2724,14 @@ button > span {
     white-space: nowrap;
   }
 
-  .guest-filter-button svg {
+  .guest-filter-button svg,
+  .invitation-filter-button svg {
     width: 16px;
     height: 16px;
   }
 
-  .guest-filter-panel {
+  .guest-filter-panel,
+  .invitation-filter-panel {
     display: none;
     grid-column: 1 / -1;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -2736,7 +2744,16 @@ button > span {
     display: grid;
   }
 
-  .guest-filter-panel select {
+  .invitation-list-toolbar.filters-open .invitation-filter-panel {
+    display: grid;
+  }
+
+  .invitation-filter-panel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .guest-filter-panel select,
+  .invitation-filter-panel select {
     width: 100%;
   }
 
