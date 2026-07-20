@@ -93,6 +93,26 @@ const GUEST_SORT_COLUMNS = [
   { key: "note", label: "備註", align: "cell-left", type: "text", value: (guest) => guest.note || "" },
 ];
 const GUEST_SORT_COLUMN_MAP = Object.fromEntries(GUEST_SORT_COLUMNS.map((column) => [column.key, column]));
+const INVITATION_SORT_COLUMNS = [
+  { key: "name", label: "姓名", align: "cell-left", type: "text", value: (guest) => guest.name || "" },
+  { key: "type", label: "喜帖", align: "cell-center", type: "number", value: (guest) => invitationSortRank(guest.invitationType) },
+  { key: "status", label: "喜帖狀態", align: "cell-center", type: "number", value: (guest) => invitationStatusRank(guest) },
+  { key: "delivery", label: "寄送完成", align: "cell-center", type: "number", value: (guest) => invitationDeliveryRank(guest.invitationDelivery) },
+  { key: "address", label: "地址", align: "cell-left", type: "text", value: (guest) => guest.address || "" },
+  { key: "email", label: "Email", align: "cell-left", type: "text", value: (guest) => guest.email || "" },
+  { key: "relation", label: "關係", align: "cell-center", type: "text", value: (guest) => guest.relation || "" },
+  { key: "phone", label: "電話", align: "cell-left", type: "text", value: (guest) => guest.phone || "" },
+  { key: "note", label: "備註", align: "cell-left", type: "text", value: (guest) => guest.note || "" },
+];
+const INVITATION_SORT_COLUMN_MAP = Object.fromEntries(INVITATION_SORT_COLUMNS.map((column) => [column.key, column]));
+const GIFT_SORT_COLUMNS = [
+  { key: "name", label: "姓名", align: "cell-left", type: "text", value: (gift) => gift.name || "" },
+  { key: "amount", label: "金額", align: "cell-center", type: "number", value: (gift) => Number(gift.amount || 0) },
+  { key: "method", label: "方式", align: "cell-center", type: "text", value: (gift) => gift.method || "" },
+  { key: "date", label: "日期", align: "cell-center", type: "date", value: (gift) => gift.date || gift.createdAt || "" },
+  { key: "note", label: "備註", align: "cell-left", type: "text", value: (gift) => gift.note || "" },
+];
+const GIFT_SORT_COLUMN_MAP = Object.fromEntries(GIFT_SORT_COLUMNS.map((column) => [column.key, column]));
 
 const seedState = {
   canvas: {
@@ -157,6 +177,8 @@ const seedState = {
 let state = normalizeState(loadState());
 let currentView = "seating";
 let guestSort = { key: "rsvp", direction: "asc" };
+let invitationSort = { key: "status", direction: "asc" };
+let giftSort = { key: "date", direction: "desc" };
 let pendingConfirmation = null;
 let movingLayoutItem = null;
 let suppressTableClickId = null;
@@ -769,18 +791,7 @@ function renderGuestTable() {
 }
 
 function guestTableHeaderCell(column) {
-  const active = guestSort.key === column.key;
-  const nextDirection = active && guestSort.direction === "asc" ? "降冪" : "升冪";
-  const ariaSort = active ? (guestSort.direction === "asc" ? "ascending" : "descending") : "none";
-  const indicator = active ? (guestSort.direction === "asc" ? "&uarr;" : "&darr;") : "";
-  return `
-    <span class="${column.align}" aria-sort="${ariaSort}">
-      <button class="table-sort-button ${active ? "active" : ""}" data-guest-sort="${column.key}" type="button" aria-label="依${column.label}${nextDirection}排序">
-        <span>${column.label}</span>
-        <span class="sort-indicator" aria-hidden="true">${indicator}</span>
-      </button>
-    </span>
-  `;
+  return tableSortHeaderCell(column, guestSort, "guest");
 }
 
 function bindGuestSortHeaders(root) {
@@ -797,15 +808,40 @@ function updateGuestSort(key) {
 }
 
 function compareGuestRows(a, b) {
-  const column = GUEST_SORT_COLUMN_MAP[guestSort.key] || GUEST_SORT_COLUMN_MAP.rsvp;
-  const direction = guestSort.direction === "desc" ? -1 : 1;
-  const primary = compareGuestSortValues(column.value(a), column.value(b), column.type);
-  return primary * direction || defaultGuestCompare(a, b);
+  return compareRowsBySort(a, b, guestSort, GUEST_SORT_COLUMN_MAP, defaultGuestCompare);
 }
 
-function compareGuestSortValues(a, b, type) {
+function tableSortHeaderCell(column, sortState, scope) {
+  const active = sortState.key === column.key;
+  const nextDirection = active && sortState.direction === "asc" ? "降冪" : "升冪";
+  const ariaSort = active ? (sortState.direction === "asc" ? "ascending" : "descending") : "none";
+  const indicator = active ? (sortState.direction === "asc" ? "&uarr;" : "&darr;") : "";
+  return `
+    <span class="${column.align}" aria-sort="${ariaSort}">
+      <button class="table-sort-button ${active ? "active" : ""}" data-${scope}-sort="${column.key}" type="button" aria-label="依${column.label}${nextDirection}排序">
+        <span>${column.label}</span>
+        <span class="sort-indicator" aria-hidden="true">${indicator}</span>
+      </button>
+    </span>
+  `;
+}
+
+function compareRowsBySort(a, b, sortState, columnMap, fallbackCompare) {
+  const column = columnMap[sortState.key] || Object.values(columnMap)[0];
+  const direction = sortState.direction === "desc" ? -1 : 1;
+  const primary = compareSortValues(column.value(a), column.value(b), column.type);
+  return primary * direction || fallbackCompare(a, b);
+}
+
+function compareSortValues(a, b, type) {
   if (type === "number") return Number(a) - Number(b);
+  if (type === "date") return sortableDateValue(a) - sortableDateValue(b);
   return String(a || "").localeCompare(String(b || ""), "zh-Hant", { numeric: true });
+}
+
+function sortableDateValue(value) {
+  const time = new Date(value || 0).getTime();
+  return Number.isFinite(time) ? time : 0;
 }
 
 function defaultGuestCompare(a, b) {
@@ -821,6 +857,14 @@ function guestAssignmentSort(guest) {
 
 function invitationSortRank(type) {
   return { paper: 0, digital: 1, none: 2 }[normalizeInvitationType(type)] ?? 3;
+}
+
+function invitationStatusRank(guest) {
+  return { missing: 0, ready: 1, sent: 2, none: 3 }[invitationStatusFor(guest).key] ?? 4;
+}
+
+function invitationDeliveryRank(delivery) {
+  return delivery === "sent" ? 1 : 0;
 }
 
 function updateGuestFilterButton() {
@@ -873,24 +917,13 @@ function renderInvitationTable() {
     .filter((guest) => invitationTypeMatchesFilter(guest, type))
     .filter((guest) => status === "all" || invitationStatusFor(guest).key === status)
     .filter((guest) => !query || invitationHaystack(guest).includes(query))
-    .sort((a, b) =>
-      invitationSortValue(a).localeCompare(invitationSortValue(b), "zh-Hant") ||
-      a.name.localeCompare(b.name, "zh-Hant")
-    );
+    .sort(compareInvitationRows);
   const statusCounts = countInvitationStatuses(rows);
 
   els.invitationTable.innerHTML = `
     <div class="table-scroll" role="region" aria-label="喜帖寄送名單表格">
       <div class="table-row invitation-table header">
-        <span>姓名</span>
-        <span>喜帖</span>
-        <span>喜帖狀態</span>
-        <span>寄送完成</span>
-        <span>地址</span>
-        <span>Email</span>
-        <span>關係</span>
-        <span>電話</span>
-        <span>備註</span>
+        ${INVITATION_SORT_COLUMNS.map(invitationTableHeaderCell).join("")}
       </div>
       ${rows.length ? rows.map(invitationRowHTML).join("") : empty("沒有符合條件的喜帖資料。")}
     </div>
@@ -898,7 +931,34 @@ function renderInvitationTable() {
       <span>共 ${rows.length} 筆 · 已寄送 ${statusCounts.sent} 筆 · 待寄送 ${statusCounts.ready} 筆 · 待補資料 ${statusCounts.missing} 筆 · 無喜帖 ${statusCounts.none} 筆</span>
     </div>
   `;
+  bindInvitationSortHeaders(els.invitationTable);
   bindGuestInlineEdits(els.invitationTable);
+}
+
+function invitationTableHeaderCell(column) {
+  return tableSortHeaderCell(column, invitationSort, "invitation");
+}
+
+function bindInvitationSortHeaders(root) {
+  root.querySelectorAll("[data-invitation-sort]").forEach((button) => {
+    button.addEventListener("click", () => updateInvitationSort(button.dataset.invitationSort));
+  });
+}
+
+function updateInvitationSort(key) {
+  if (!INVITATION_SORT_COLUMN_MAP[key]) return;
+  const direction = invitationSort.key === key && invitationSort.direction === "asc" ? "desc" : "asc";
+  invitationSort = { key, direction };
+  renderInvitationTable();
+}
+
+function compareInvitationRows(a, b) {
+  return compareRowsBySort(a, b, invitationSort, INVITATION_SORT_COLUMN_MAP, defaultInvitationCompare);
+}
+
+function defaultInvitationCompare(a, b) {
+  return invitationSortValue(a).localeCompare(invitationSortValue(b), "zh-Hant") ||
+    a.name.localeCompare(b.name, "zh-Hant");
 }
 
 function invitationRowHTML(guest) {
@@ -1035,18 +1095,14 @@ function renderGiftTable() {
   const gifts = state.gifts
     .filter((gift) => method === "all" || gift.method === method)
     .filter((gift) => !query || `${gift.name} ${gift.method} ${gift.note}`.toLowerCase().includes(query))
-    .sort((a, b) => new Date(b.createdAt || b.date) - new Date(a.createdAt || a.date));
+    .sort(compareGiftRows);
   const total = gifts.reduce((sum, gift) => sum + Number(gift.amount || 0), 0);
 
   els.giftTable.innerHTML = `
     <div class="table-scroll" role="region" aria-label="禮金紀錄表格">
       <div class="table-row gift-table header">
-        <span>姓名</span>
-        <span>金額</span>
-        <span>方式</span>
-        <span>日期</span>
-        <span>備註</span>
-        <span>${money(total)}</span>
+        ${GIFT_SORT_COLUMNS.map(giftTableHeaderCell).join("")}
+        <span class="cell-actions">${money(total)}</span>
       </div>
       ${gifts.length ? gifts.map((gift) => `
         <div class="table-row gift-table">
@@ -1064,6 +1120,7 @@ function renderGiftTable() {
     </div>
   `;
 
+  bindGiftSortHeaders(els.giftTable);
   els.giftTable.querySelectorAll("[data-edit-gift]").forEach((button) => {
     button.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -1077,6 +1134,32 @@ function renderGiftTable() {
       if (gift) confirmDeleteGift(gift);
     });
   });
+}
+
+function giftTableHeaderCell(column) {
+  return tableSortHeaderCell(column, giftSort, "gift");
+}
+
+function bindGiftSortHeaders(root) {
+  root.querySelectorAll("[data-gift-sort]").forEach((button) => {
+    button.addEventListener("click", () => updateGiftSort(button.dataset.giftSort));
+  });
+}
+
+function updateGiftSort(key) {
+  if (!GIFT_SORT_COLUMN_MAP[key]) return;
+  const direction = giftSort.key === key && giftSort.direction === "asc" ? "desc" : "asc";
+  giftSort = { key, direction };
+  renderGiftTable();
+}
+
+function compareGiftRows(a, b) {
+  return compareRowsBySort(a, b, giftSort, GIFT_SORT_COLUMN_MAP, defaultGiftCompare);
+}
+
+function defaultGiftCompare(a, b) {
+  return sortableDateValue(b.createdAt || b.date) - sortableDateValue(a.createdAt || a.date) ||
+    String(a.name || "").localeCompare(String(b.name || ""), "zh-Hant", { numeric: true });
 }
 
 function renderTableManager() {
@@ -1182,8 +1265,9 @@ function tableGuestDetailRow(guest) {
   const relationShort = guest.relation.replace("親友", "");
   const chips = [
     `<span class="table-guest-pill relation ${relationClass}">${escapeHTML(relationShort)}</span>`,
-    vegetarianCount ? `<span class="table-guest-pill vegetarian">素 ${vegetarianCount}</span>` : "",
-    childSeats ? `<span class="table-guest-pill child">兒 ${childSeats}</span>` : "",
+    `<span class="table-guest-pill people">${partySize(guest)}位</span>`,
+    vegetarianCount ? `<span class="table-guest-pill vegetarian">素${vegetarianCount}</span>` : "",
+    childSeats ? `<span class="table-guest-pill child">兒${childSeats}</span>` : "",
     guest.rsvp === "pending" ? `<span class="table-guest-pill pending">未回覆</span>` : "",
   ].filter(Boolean).join("");
 
@@ -1324,21 +1408,33 @@ function guestChip(guest, showNames) {
 
 function guestRow(guest, options = {}) {
   const table = tableLabel(guest.tableId);
-  const specialText = [
-    guest.vegetarianCount ? `素食 ${guest.vegetarianCount}` : "",
-    guest.childSeats ? `兒童椅 ${guest.childSeats}` : "",
-  ].filter(Boolean).join(" · ");
   return `
     <article class="guest-row" ${options.draggable ? 'draggable="true"' : ""} data-guest-id="${guest.id}">
       <div class="guest-row-main">
         <strong>${escapeHTML(guest.name)}</strong>
-        <small>${partySize(guest)} 位 · ${escapeHTML(guest.relation)} · ${escapeHTML(guest.group || "未分類")} · ${escapeHTML(table)}${specialText ? ` · ${escapeHTML(specialText)}` : ""}</small>
+        ${guestNeedStrip(guest, table)}
       </div>
       <div class="row-actions">
         <span class="status-badge ${rsvpMeta[guest.rsvp].className}">${rsvpMeta[guest.rsvp].label}</span>
         <button class="icon-button" data-edit-guest="${guest.id}" type="button" aria-label="編輯">${icons.edit}</button>
       </div>
     </article>
+  `;
+}
+
+function guestNeedStrip(guest, table) {
+  const vegetarianCount = Number.parseInt(guest.vegetarianCount, 10) || 0;
+  const childSeats = Number.parseInt(guest.childSeats, 10) || 0;
+  const mealLabel = vegetarianCount ? `素${vegetarianCount}` : "葷";
+  const relationShort = guest.relation.replace("親友", "");
+  const meta = [relationShort, guest.group || "", table && table !== "待安排" ? table : ""].filter(Boolean).join(" · ");
+  return `
+    <div class="guest-need-strip" aria-label="${escapeHTML(`${partySize(guest)}位，${mealLabel}${childSeats ? `，兒童椅${childSeats}` : ""}`)}">
+      <span class="guest-need-pill people">${partySize(guest)}位</span>
+      <span class="guest-need-pill meal ${vegetarianCount ? "vegetarian" : "regular"}">${escapeHTML(mealLabel)}</span>
+      ${childSeats ? `<span class="guest-need-pill child">兒${childSeats}</span>` : ""}
+      ${meta ? `<span class="guest-need-meta">${escapeHTML(meta)}</span>` : ""}
+    </div>
   `;
 }
 
