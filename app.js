@@ -13,17 +13,8 @@ const LEGACY_CANVAS_HEIGHT = 1140;
 const CANVAS_GROW_PADDING = 900;
 const TABLE_CARD_WIDTH = 212;
 const TABLE_CARD_DEPTH = 154;
-const TABLE_GUEST_PREVIEW_LIMIT = 8;
-const TABLE_RING_SLOTS = {
-  1: [{ x: 50, y: 82 }],
-  2: [{ x: 32, y: 76 }, { x: 68, y: 76 }],
-  3: [{ x: 50, y: 17 }, { x: 75, y: 72 }, { x: 25, y: 72 }],
-  4: [{ x: 50, y: 14 }, { x: 79, y: 33 }, { x: 50, y: 86 }, { x: 21, y: 67 }],
-  5: [{ x: 50, y: 14 }, { x: 79, y: 32 }, { x: 75, y: 70 }, { x: 50, y: 86 }, { x: 21, y: 58 }],
-  6: [{ x: 50, y: 14 }, { x: 76, y: 28 }, { x: 76, y: 72 }, { x: 50, y: 86 }, { x: 24, y: 72 }, { x: 24, y: 28 }],
-  7: [{ x: 50, y: 14 }, { x: 75, y: 26 }, { x: 82, y: 38 }, { x: 70, y: 78 }, { x: 50, y: 86 }, { x: 24, y: 68 }, { x: 18, y: 34 }],
-  8: [{ x: 50, y: 14 }, { x: 75, y: 25 }, { x: 82, y: 37 }, { x: 79, y: 66 }, { x: 50, y: 86 }, { x: 21, y: 66 }, { x: 18, y: 37 }, { x: 25, y: 25 }],
-};
+const TABLE_GUEST_PREVIEW_LIMIT = 10;
+const TABLE_RING_RADIUS = 40;
 const STAGE_WIDTH = TABLE_CARD_WIDTH * 2;
 const STAGE_DEPTH = Math.round(TABLE_CARD_DEPTH * 0.5);
 const GIFT_DESK_WIDTH = Math.round(TABLE_CARD_WIDTH * 0.5);
@@ -664,7 +655,11 @@ function renderSeating() {
       event.preventDefault();
       node.classList.remove("drag-over");
       const guestId = event.dataTransfer.getData("text/guest-id");
-      if (guestId) assignGuestToTable(guestId, node.dataset.tableId);
+      if (guestId) {
+        assignGuestToTable(guestId, node.dataset.tableId, {
+          seatIndex: seatIndexFromDropPoint(node, event.clientX, event.clientY, guestId),
+        });
+      }
     });
   });
 
@@ -701,9 +696,7 @@ function renderVenueItem(item) {
 }
 
 function renderSeatTable(table, showNames) {
-  const assigned = state.guests
-    .filter((guest) => guest.tableId === table.id && guest.rsvp !== "declined")
-    .sort((a, b) => a.name.localeCompare(b.name, "zh-Hant"));
+  const assigned = tableGuests(table.id);
   const hasHiddenGuests = assigned.length > TABLE_GUEST_PREVIEW_LIMIT;
   const visibleLimit = hasHiddenGuests ? TABLE_GUEST_PREVIEW_LIMIT - 1 : TABLE_GUEST_PREVIEW_LIMIT;
   const visibleGuests = assigned.slice(0, visibleLimit);
@@ -715,26 +708,27 @@ function renderSeatTable(table, showNames) {
   const locked = Boolean(state.canvas.layoutLocked);
   const visualSize = tableVisualSize(ringItemCount);
   const summaryParts = [
-    seatStatus.label,
-    specialCounts.vegetarianCount ? `素${specialCounts.vegetarianCount}` : "",
-    specialCounts.childSeats ? `童${specialCounts.childSeats}` : "",
+    { label: seatStatus.label, className: seatStatus.className },
+    specialCounts.vegetarianCount ? { label: `素${specialCounts.vegetarianCount}`, className: "vegetarian" } : null,
+    specialCounts.childSeats ? { label: `童${specialCounts.childSeats}`, className: "child" } : null,
   ].filter(Boolean);
+  const summaryText = summaryParts.map((part) => part.label).join(" ");
 
   return `
     <section class="seat-table ${table.over ? "over-capacity" : ""} ${table.hidden ? "hidden-by-filter" : ""} ${locked ? "locked-layout" : ""} table-status-${seatStatus.className}"
       data-table-id="${table.id}"
       style="left:${table.x}px;top:${table.y}px;--table-size:${visualSize}px"
-      aria-label="${escapeHTML(`${tableDisplayName(table)}，${summaryParts.join(" ")}`)}"
+      aria-label="${escapeHTML(`${tableDisplayName(table)}，${summaryText}`)}"
       title="${escapeHTML(locked ? `${seatStatus.title}；桌位已鎖定` : `${seatStatus.title}；拖曳移動桌位`)}">
-      <button class="round-table-core ${table.kind === "head" ? "head" : ""}" data-edit-table="${table.id}" type="button" aria-label="編輯${escapeHTML(tableDisplayName(table))}">
+      <button class="round-table-core ${table.kind === "head" ? "head" : ""}" data-view-table-guests="${table.id}" type="button" aria-label="查看${escapeHTML(tableDisplayName(table))}賓客">
         <span class="table-name">${escapeHTML(tableDisplayName(table))}</span>
         <span class="table-alias">${escapeHTML(table.alias || "未設定別名")}</span>
         <span class="table-center-summary ${seatStatus.className}">
-          ${summaryParts.map((part) => `<span>${escapeHTML(part)}</span>`).join("")}
+          ${summaryParts.map((part) => `<span class="${escapeHTML(part.className)}">${escapeHTML(part.label)}</span>`).join("")}
         </span>
       </button>
       <div class="table-guests">
-        ${visibleGuests.map((guest, index) => guestChip(guest, showNames, { ring: true, position: tableRingSlot(index, ringItemCount) })).join("")}
+        ${visibleGuests.map((guest, index) => guestChip(guest, showNames, { ring: true, tableId: table.id, seatIndex: index, position: tableRingSlot(index, ringItemCount) })).join("")}
         ${hiddenGuests.length ? `
           <button class="table-overflow-chip" data-view-table-guests="${table.id}" type="button" style="${tableRingStyle(tableRingSlot(ringItemCount - 1, ringItemCount))}" title="查看${escapeHTML(tableDisplayName(table))}完整賓客">
             +${hiddenGuests.length}組 / +${hiddenPeople}位
@@ -746,15 +740,22 @@ function renderSeatTable(table, showNames) {
 }
 
 function tableVisualSize(guestCount) {
-  if (guestCount >= TABLE_GUEST_PREVIEW_LIMIT) return 272;
-  if (guestCount >= 6) return 260;
+  if (guestCount >= TABLE_GUEST_PREVIEW_LIMIT) return 292;
+  if (guestCount >= 8) return 282;
+  if (guestCount >= 6) return 266;
   if (guestCount >= 3) return 242;
   return 226;
 }
 
 function tableRingSlot(index, count) {
   const safeCount = clamp(count, 1, TABLE_GUEST_PREVIEW_LIMIT);
-  return TABLE_RING_SLOTS[safeCount][index] || TABLE_RING_SLOTS[TABLE_GUEST_PREVIEW_LIMIT][index] || TABLE_RING_SLOTS[1][0];
+  if (safeCount === 1) return { x: 50, y: 82 };
+  const radius = safeCount >= 9 ? TABLE_RING_RADIUS : safeCount >= 6 ? 37 : 35;
+  const angle = (-90 + (index * 360) / safeCount) * (Math.PI / 180);
+  return {
+    x: Number((50 + Math.cos(angle) * radius).toFixed(2)),
+    y: Number((50 + Math.sin(angle) * radius).toFixed(2)),
+  };
 }
 
 function tableRingStyle(position) {
@@ -1356,9 +1357,8 @@ function tableGuestDetailRow(guest) {
   const childSeats = Number.parseInt(guest.childSeats, 10) || 0;
   const relationClass = guest.relation === "女方親友" ? "bride" : "groom";
   const relationShort = guest.relation.replace("親友", "");
-  const mealLabel = vegetarianCount ? `素${vegetarianCount}` : "葷";
   const chips = [
-    `<span class="table-guest-pill meal ${vegetarianCount ? "vegetarian" : "regular"}">${escapeHTML(mealLabel)}</span>`,
+    vegetarianCount ? `<span class="table-guest-pill meal vegetarian">素${vegetarianCount}</span>` : "",
     childSeats ? `<span class="table-guest-pill child">兒${childSeats}</span>` : "",
     guest.rsvp === "pending" ? `<span class="table-guest-pill pending">未回覆</span>` : "",
     `<span class="table-guest-pill people">${partySize(guest)}位</span>`,
@@ -1491,8 +1491,10 @@ function guestChip(guest, showNames, options = {}) {
   const tooltipAttribute = showNames ? ` data-full-name="${escapeHTML(guest.name)}"` : "";
   const ringClass = options.ring ? " ring-chip" : "";
   const styleAttribute = options.position ? ` style="${escapeHTML(tableRingStyle(options.position))}"` : "";
+  const tableAttribute = options.tableId ? ` data-table-id="${escapeHTML(options.tableId)}"` : "";
+  const seatAttribute = Number.isFinite(options.seatIndex) ? ` data-seat-index="${options.seatIndex}"` : "";
   return `
-    <div class="guest-chip ${guest.rsvp} ${specialClass}${ringClass}" draggable="true" data-guest-id="${guest.id}"${styleAttribute}>
+    <div class="guest-chip ${guest.rsvp} ${specialClass}${ringClass}" draggable="true" data-guest-id="${guest.id}"${tableAttribute}${seatAttribute}${styleAttribute}>
       <button class="guest-chip-main" data-edit-guest="${guest.id}"${tooltipAttribute} type="button" aria-label="編輯${escapeHTML(guest.name)}">
         <span class="guest-chip-name">${escapeHTML(displayName)}</span>
         <span class="party-size">${partySize(guest)}位</span>
@@ -1664,7 +1666,9 @@ function finishGuestPointerDrag(event) {
 
   const tableNode = dropTarget?.closest?.(".seat-table");
   if (tableNode) {
-    assignGuestToTable(guestId, tableNode.dataset.tableId);
+    assignGuestToTable(guestId, tableNode.dataset.tableId, {
+      seatIndex: seatIndexFromDropPoint(tableNode, event.clientX, event.clientY, guestId),
+    });
     return;
   }
   if (dropTarget?.closest?.("#unassignedDropZone")) {
@@ -1687,7 +1691,7 @@ function cleanupGuestPointerDrag() {
 
 function getGuestDropTarget(x, y) {
   const node = document.elementFromPoint(x, y);
-  return node?.closest?.(".seat-table, #unassignedDropZone") || null;
+  return node?.closest?.(".guest-chip[data-table-id], .seat-table, #unassignedDropZone") || null;
 }
 
 function updateDropHighlight(target) {
@@ -1792,7 +1796,7 @@ function cancelLayoutItemMove() {
   movingLayoutItem = null;
 }
 
-function assignGuestToTable(guestId, tableId) {
+function assignGuestToTable(guestId, tableId, options = {}) {
   const guest = findGuest(guestId);
   if (!guest) return;
   if (guest.rsvp === "declined") {
@@ -1801,15 +1805,85 @@ function assignGuestToTable(guestId, tableId) {
   }
   const table = tableId ? findTable(tableId) : null;
   if (tableId && !table) return;
-  if ((guest.tableId || null) === (tableId || null)) return;
-  recordLayoutHistory(table ? "安排賓客座位" : "移回待安排");
+  const previousTableId = guest.tableId || null;
+  const nextTableId = tableId || null;
+  const sameTable = previousTableId === nextTableId;
+  const targetSeatIndex = Number.isFinite(options.seatIndex) ? Math.round(options.seatIndex) : null;
+  if (sameTable && targetSeatIndex === null) return;
+  const currentIndex = nextTableId ? tableGuests(nextTableId).findIndex((item) => item.id === guestId) : -1;
+  if (sameTable && currentIndex === targetSeatIndex) return;
+  recordLayoutHistory(sameTable ? "調整桌內座位" : table ? "安排賓客座位" : "移回待安排");
   const nextOccupancy = table ? tableOccupancy(tableId, guestId) + partySize(guest) : 0;
-  guest.tableId = tableId || null;
+  guest.tableId = nextTableId;
+  if (table) {
+    applyGuestSeatOrder(guestId, table.id, targetSeatIndex);
+  } else {
+    guest.seatOrder = null;
+  }
+  if (previousTableId && previousTableId !== nextTableId) normalizeSeatOrdersForTable(previousTableId);
   saveState();
   renderAll();
+  if (sameTable) {
+    showToast(`已調整 ${guest.name} 在 ${tableLabel(tableId)} 的位置`);
+    return;
+  }
   showToast(table
     ? `已安排 ${guest.name} 到 ${tableLabel(tableId)}${nextOccupancy > table.capacity ? `（超過容量 ${nextOccupancy}/${table.capacity}）` : ""}`
     : `已將 ${guest.name} 移回待安排`);
+}
+
+function applyGuestSeatOrder(guestId, tableId, targetSeatIndex = null) {
+  const movingGuest = findGuest(guestId);
+  if (!movingGuest || movingGuest.tableId !== tableId) return;
+  const orderedGuests = tableGuests(tableId).filter((guest) => guest.id !== guestId);
+  const insertIndex = targetSeatIndex === null
+    ? orderedGuests.length
+    : clamp(targetSeatIndex, 0, orderedGuests.length);
+  orderedGuests.splice(insertIndex, 0, movingGuest);
+  orderedGuests.forEach((guest, index) => {
+    guest.seatOrder = index;
+  });
+}
+
+function normalizeSeatOrdersForTable(tableId) {
+  if (!tableId) return;
+  tableGuests(tableId).forEach((guest, index) => {
+    guest.seatOrder = index;
+  });
+}
+
+function normalizeAllSeatOrders(source = state) {
+  const tableIds = new Set((source.tables || []).map((table) => table.id));
+  tableIds.forEach((tableId) => {
+    source.guests
+      .filter((guest) => guest.tableId === tableId && guest.rsvp !== "declined")
+      .sort(compareGuestsBySeat)
+      .forEach((guest, index) => {
+        guest.seatOrder = index;
+      });
+  });
+  source.guests
+    .filter((guest) => !tableIds.has(guest.tableId) || guest.rsvp === "declined")
+    .forEach((guest) => {
+      guest.seatOrder = null;
+    });
+}
+
+function seatIndexFromDropPoint(tableNode, clientX, clientY, guestId) {
+  if (!tableNode) return null;
+  const tableId = tableNode.dataset.tableId;
+  const targetChip = document.elementFromPoint(clientX, clientY)?.closest?.(".guest-chip[data-table-id]");
+  if (targetChip?.dataset.tableId === tableId && targetChip.dataset.guestId !== guestId) {
+    const targetIndex = Number.parseInt(targetChip.dataset.seatIndex, 10);
+    if (Number.isFinite(targetIndex)) return targetIndex;
+  }
+  const nextCount = Math.max(1, tableGuests(tableId).filter((guest) => guest.id !== guestId).length + 1);
+  const rect = tableNode.getBoundingClientRect();
+  const centerX = rect.left + rect.width / 2;
+  const centerY = rect.top + rect.height / 2;
+  const angle = (Math.atan2(clientY - centerY, clientX - centerX) * 180) / Math.PI;
+  const normalized = (angle + 90 + 360) % 360;
+  return Math.round(normalized / (360 / nextCount)) % nextCount;
 }
 
 function openSettingsDialog() {
@@ -2713,7 +2787,7 @@ function saveCloudSyncSettings(event) {
   renderCloudSyncStatus("同步設定已儲存");
   restartCloudSyncPolling();
   showToast(cloudSyncConfigured() ? "雲端同步設定已儲存" : "雲端同步尚未完整設定");
-  if (cloudSyncConfigured() && cloudSyncConfig.autoSync) runCloudStartupSync();
+  if (cloudSyncConfigured()) runCloudStartupSync();
 }
 
 function confirmClearCloudSyncSettings() {
@@ -2758,7 +2832,7 @@ function renderCloudSyncStatus(message = cloudSyncLastMessage) {
 function startCloudSync() {
   renderCloudSyncStatus();
   restartCloudSyncPolling();
-  if (cloudSyncConfigured() && cloudSyncConfig.autoSync) {
+  if (cloudSyncConfigured()) {
     window.setTimeout(() => runCloudStartupSync(), 500);
   }
 }
@@ -2783,6 +2857,7 @@ function scheduleCloudPush() {
 
 async function runCloudStartupSync() {
   if (!cloudSyncConfigured() || cloudSyncBusy) return;
+  setCloudBusy(true, "正在從雲端讀取資料...");
   try {
     const remote = await fetchCloudRecord();
     if (!remote) {
@@ -2800,15 +2875,12 @@ async function runCloudStartupSync() {
       renderCloudSyncStatus("雲端資料已核對");
       return;
     }
-    if (remoteIsNewer(remote.updated_at, remote.payload)) {
-      applyCloudState(remote.payload, remote.updated_at, { silent: true, allowAutoPush: false });
-      return;
-    }
-    cloudSyncReadyForAutoPush = false;
-    renderCloudSyncStatus("本機與雲端資料不同，請手動選擇下載或上傳");
+    applyCloudState(remote.payload, remote.updated_at, { silent: true, allowAutoPush: false });
   } catch (error) {
     cloudSyncReadyForAutoPush = false;
     renderCloudSyncStatus(`雲端同步失敗：${error.message}`);
+  } finally {
+    setCloudBusy(false);
   }
 }
 
@@ -3040,11 +3112,13 @@ function normalizeState(value) {
       group: guest.group || "",
       phone: guest.phone || "",
       tableId: next.tables.some((item) => item.id === guest.tableId) ? guest.tableId : null,
+      seatOrder: Number.isFinite(Number(guest.seatOrder)) ? Number(guest.seatOrder) : null,
       note,
       createdAt: guest.createdAt || nowISO(),
       updatedAt: guest.updatedAt || nowISO(),
     };
   });
+  normalizeAllSeatOrders(next);
   next.gifts = next.gifts.map((gift) => {
     const linkedGuest = next.guests.find((guest) => guest.id === gift.guestId);
     return {
@@ -3064,6 +3138,7 @@ function normalizeState(value) {
 
 function saveState(options = {}) {
   const { snapshotReason = "自動保存", createSnapshot = true, skipCloudSync = false } = options;
+  normalizeAllSeatOrders(state);
   state.meta = { ...seedState.meta, ...(state.meta || {}), updatedAt: nowISO() };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   if (createSnapshot) maybeCreateAutoSnapshot(snapshotReason);
@@ -3106,6 +3181,7 @@ function captureLayoutSnapshot(source = state) {
     guestAssignments: source.guests.map((guest) => ({
       id: guest.id,
       tableId: guest.tableId || null,
+      seatOrder: Number.isFinite(Number(guest.seatOrder)) ? Number(guest.seatOrder) : null,
     })),
   };
 }
@@ -3147,15 +3223,24 @@ function applyLayoutSnapshot(layout) {
   const currentLock = Boolean(state.canvas.layoutLocked);
   state.tables = Array.isArray(layout.tables) ? layout.tables.map((table) => ({ ...table })) : state.tables;
   state.venueItems = Array.isArray(layout.venueItems) ? layout.venueItems.map((item) => ({ ...item })) : state.venueItems;
-  const assignmentMap = new Map((layout.guestAssignments || []).map((item) => [item.id, item.tableId || null]));
+  const assignmentMap = new Map((layout.guestAssignments || []).map((item) => [item.id, {
+    tableId: item.tableId || null,
+    seatOrder: Number.isFinite(Number(item.seatOrder)) ? Number(item.seatOrder) : null,
+  }]));
   const tableIds = new Set(state.tables.map((table) => table.id));
   state.guests = state.guests.map((guest) => {
     if (!assignmentMap.has(guest.id)) {
       return tableIds.has(guest.tableId) ? guest : { ...guest, tableId: null };
     }
-    const tableId = assignmentMap.get(guest.id);
-    return { ...guest, tableId: tableId && tableIds.has(tableId) ? tableId : null };
+    const assignment = assignmentMap.get(guest.id);
+    const tableId = assignment?.tableId || null;
+    return {
+      ...guest,
+      tableId: tableId && tableIds.has(tableId) ? tableId : null,
+      seatOrder: Number.isFinite(Number(assignment?.seatOrder)) ? Number(assignment.seatOrder) : null,
+    };
   });
+  normalizeAllSeatOrders(state);
   state.canvas.layoutLocked = currentLock;
 }
 
@@ -3460,7 +3545,18 @@ function tableOccupancy(tableId, exceptGuestId = null) {
 function tableGuests(tableId) {
   return state.guests
     .filter((guest) => guest.tableId === tableId && guest.rsvp !== "declined")
-    .sort((a, b) => rsvpSort(a) - rsvpSort(b) || a.name.localeCompare(b.name, "zh-Hant"));
+    .sort(compareGuestsBySeat);
+}
+
+function compareGuestsBySeat(a, b) {
+  return guestSeatSortValue(a) - guestSeatSortValue(b) ||
+    rsvpSort(a) - rsvpSort(b) ||
+    a.name.localeCompare(b.name, "zh-Hant");
+}
+
+function guestSeatSortValue(guest) {
+  const value = Number(guest.seatOrder);
+  return Number.isFinite(value) ? value : Number.MAX_SAFE_INTEGER;
 }
 
 function partySize(guest) {

@@ -965,6 +965,18 @@ button > span {
   background: var(--summary-bg);
 }
 
+.table-center-summary span.vegetarian {
+  color: var(--sage-deep);
+  border-color: #badbc9;
+  background: #dff0e6;
+}
+
+.table-center-summary span.child {
+  color: #23526c;
+  border-color: #cfe1ee;
+  background: #dceefa;
+}
+
 .table-guests {
   position: absolute;
   inset: 0;
@@ -993,7 +1005,7 @@ button > span {
   position: absolute;
   top: var(--chip-y, 50%);
   left: var(--chip-x, 50%);
-  max-width: clamp(90px, calc(var(--table-size, 226px) * 0.4), 112px);
+  max-width: clamp(80px, calc(var(--table-size, 226px) * 0.34), 100px);
   min-height: 23px;
   padding: 0 3px 0 7px;
   border-color: rgba(63, 105, 89, 0.18);
@@ -1028,7 +1040,7 @@ button > span {
 }
 
 .seat-table .guest-chip-name {
-  max-width: 60px;
+  max-width: 48px;
 }
 
 .seat-table .guest-chip .party-size {
