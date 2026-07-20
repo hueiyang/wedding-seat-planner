@@ -741,11 +741,11 @@ function renderSeatTable(table, showNames) {
 }
 
 function tableVisualSize(guestCount) {
-  if (guestCount >= TABLE_GUEST_PREVIEW_LIMIT) return 292;
-  if (guestCount >= 8) return 282;
-  if (guestCount >= 6) return 266;
-  if (guestCount >= 3) return 242;
-  return 226;
+  if (guestCount >= TABLE_GUEST_PREVIEW_LIMIT) return 306;
+  if (guestCount >= 8) return 296;
+  if (guestCount >= 6) return 280;
+  if (guestCount >= 3) return 254;
+  return 238;
 }
 
 function tableRingSlot(index, count) {

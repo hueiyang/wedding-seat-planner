@@ -1005,7 +1005,7 @@ button > span {
   position: absolute;
   top: var(--chip-y, 50%);
   left: var(--chip-x, 50%);
-  max-width: clamp(80px, calc(var(--table-size, 226px) * 0.34), 100px);
+  max-width: clamp(88px, calc(var(--table-size, 238px) * 0.37), 116px);
   min-height: 23px;
   padding: 0 3px 0 7px;
   border-color: rgba(63, 105, 89, 0.18);
@@ -1040,7 +1040,9 @@ button > span {
 }
 
 .seat-table .guest-chip-name {
-  max-width: 48px;
+  flex: 0 1 auto;
+  min-width: 3.2em;
+  max-width: 58px;
 }
 
 .seat-table .guest-chip .party-size {
