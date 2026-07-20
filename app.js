@@ -1182,7 +1182,6 @@ function tableGuestDetailRow(guest) {
   const relationShort = guest.relation.replace("親友", "");
   const chips = [
     `<span class="table-guest-pill relation ${relationClass}">${escapeHTML(relationShort)}</span>`,
-    `<span class="table-guest-pill people">${partySize(guest)} 位</span>`,
     vegetarianCount ? `<span class="table-guest-pill vegetarian">素 ${vegetarianCount}</span>` : "",
     childSeats ? `<span class="table-guest-pill child">兒 ${childSeats}</span>` : "",
     guest.rsvp === "pending" ? `<span class="table-guest-pill pending">未回覆</span>` : "",
