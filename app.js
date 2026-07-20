@@ -214,6 +214,7 @@ const els = {
   views: document.querySelectorAll(".view"),
   metricsGrid: document.querySelector("#metricsGrid"),
   seatingCanvas: document.querySelector("#seatingCanvas"),
+  canvasTooltip: document.querySelector("#canvasTooltip"),
   tableVisibilityFilter: document.querySelector("#tableVisibilityFilter"),
   zoomOutButton: document.querySelector("#zoomOutButton"),
   zoomInButton: document.querySelector("#zoomInButton"),
@@ -371,6 +372,15 @@ function bindEvents() {
   els.zoomResetButton.addEventListener("click", () => setCanvasZoom(1));
   els.zoomRange.addEventListener("input", () => setCanvasZoom(Number(els.zoomRange.value) / 100));
   els.seatingCanvas.addEventListener("wheel", handleCanvasWheelZoom, { passive: false });
+  els.seatingCanvas.addEventListener("pointerover", showGuestNameTooltip);
+  els.seatingCanvas.addEventListener("pointermove", moveGuestNameTooltip);
+  els.seatingCanvas.addEventListener("pointerout", hideGuestNameTooltip);
+  els.seatingCanvas.addEventListener("mouseover", showGuestNameTooltip);
+  els.seatingCanvas.addEventListener("mousemove", moveGuestNameTooltip);
+  els.seatingCanvas.addEventListener("mouseout", hideGuestNameTooltip);
+  els.seatingCanvas.addEventListener("focusin", showGuestNameTooltip);
+  els.seatingCanvas.addEventListener("focusout", hideGuestNameTooltip);
+  els.seatingCanvas.addEventListener("scroll", hideGuestNameTooltip);
   window.addEventListener("keydown", handleCanvasShortcutZoom);
   els.fitCanvasButton.addEventListener("click", () => fitCanvasToLayout());
   els.lockLayoutButton.addEventListener("click", () => setLayoutLock(!state.canvas.layoutLocked));
@@ -1393,10 +1403,12 @@ function guestChip(guest, showNames) {
   const vegetarianCount = Number.parseInt(guest.vegetarianCount, 10) || 0;
   const childSeats = Number.parseInt(guest.childSeats, 10) || 0;
   const specialClass = vegetarianCount && childSeats ? "has-special-mixed" : vegetarianCount ? "has-vegetarian" : childSeats ? "has-child-seat" : "";
+  const displayName = showNames ? guest.name : "賓客";
+  const tooltipAttribute = showNames ? ` data-full-name="${escapeHTML(guest.name)}"` : "";
   return `
     <div class="guest-chip ${guest.rsvp} ${specialClass}" draggable="true" data-guest-id="${guest.id}">
-      <button class="guest-chip-main" data-edit-guest="${guest.id}" type="button" aria-label="編輯${escapeHTML(guest.name)}">
-        <span>${showNames ? escapeHTML(guest.name) : "賓客"}</span>
+      <button class="guest-chip-main" data-edit-guest="${guest.id}"${tooltipAttribute} type="button" aria-label="編輯${escapeHTML(guest.name)}">
+        <span class="guest-chip-name">${escapeHTML(displayName)}</span>
         <span class="party-size">${partySize(guest)}位</span>
         ${vegetarianCount ? `<span class="guest-special vegetarian">素${vegetarianCount}</span>` : ""}
         ${childSeats ? `<span class="guest-special child">兒${childSeats}</span>` : ""}
@@ -1436,6 +1448,44 @@ function guestNeedStrip(guest, table) {
       ${meta ? `<span class="guest-need-meta">${escapeHTML(meta)}</span>` : ""}
     </div>
   `;
+}
+
+function showGuestNameTooltip(event) {
+  if (!els.canvasTooltip) return;
+  const target = event.target.closest?.(".guest-chip-main[data-full-name]");
+  if (!target) return;
+  const nameNode = target.querySelector(".guest-chip-name");
+  if (!nameNode || nameNode.scrollWidth <= nameNode.clientWidth + 1) return;
+  els.canvasTooltip.textContent = target.dataset.fullName;
+  els.canvasTooltip.hidden = false;
+  positionGuestNameTooltip(event, target);
+}
+
+function moveGuestNameTooltip(event) {
+  if (!els.canvasTooltip || els.canvasTooltip.hidden) return;
+  positionGuestNameTooltip(event);
+}
+
+function hideGuestNameTooltip(event) {
+  if (!els.canvasTooltip) return;
+  const target = event?.target?.closest?.(".guest-chip-main[data-full-name]");
+  if ((event?.type === "pointerout" || event?.type === "mouseout") && target?.contains(event.relatedTarget)) return;
+  els.canvasTooltip.hidden = true;
+  els.canvasTooltip.style.transform = "translate(-9999px, -9999px)";
+}
+
+function positionGuestNameTooltip(event, fallbackTarget = null) {
+  const tooltip = els.canvasTooltip;
+  if (!tooltip || tooltip.hidden) return;
+  const targetRect = fallbackTarget?.getBoundingClientRect?.();
+  const anchorX = Number.isFinite(event.clientX) ? event.clientX : (targetRect ? targetRect.left + targetRect.width / 2 : 0);
+  const anchorY = Number.isFinite(event.clientY) ? event.clientY : (targetRect ? targetRect.top : 0);
+  const margin = 10;
+  tooltip.style.transform = "translate(-9999px, -9999px)";
+  const tooltipRect = tooltip.getBoundingClientRect();
+  const nextX = Math.min(Math.max(margin, anchorX + 12), window.innerWidth - tooltipRect.width - margin);
+  const nextY = Math.min(Math.max(margin, anchorY - tooltipRect.height - 12), window.innerHeight - tooltipRect.height - margin);
+  tooltip.style.transform = `translate(${Math.round(nextX)}px, ${Math.round(nextY)}px)`;
 }
 
 function bindGuestActions(root) {

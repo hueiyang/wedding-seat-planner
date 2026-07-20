@@ -885,6 +885,8 @@ button > span {
 }
 
 .guest-chip-main {
+  position: relative;
+  justify-content: flex-start;
   gap: 5px;
   flex: 1 1 auto;
   padding: 0;
@@ -947,14 +949,39 @@ button > span {
   background: linear-gradient(90deg, #eef8f1 0 50%, #eef7fc 50% 100%);
 }
 
-.guest-chip-main span:first-child {
+.guest-chip-name {
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  text-align: left;
 }
 
 .guest-chip .party-size {
   color: var(--subtle);
+}
+
+.canvas-tooltip {
+  position: fixed;
+  z-index: 1200;
+  top: 0;
+  left: 0;
+  max-width: min(280px, calc(100vw - 20px));
+  padding: 7px 9px;
+  border: 1px solid rgba(75, 36, 61, 0.18);
+  border-radius: 7px;
+  color: #fff;
+  background: rgba(45, 32, 41, 0.95);
+  box-shadow: 0 10px 22px rgba(35, 39, 36, 0.18);
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+  text-align: left;
+  transform: translate(-9999px, -9999px);
 }
 
 .guest-special,
