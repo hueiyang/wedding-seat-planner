@@ -656,9 +656,7 @@ function renderSeating() {
       node.classList.remove("drag-over");
       const guestId = event.dataTransfer.getData("text/guest-id");
       if (guestId) {
-        assignGuestToTable(guestId, node.dataset.tableId, {
-          seatIndex: seatIndexFromDropPoint(node, event.clientX, event.clientY, guestId),
-        });
+        assignGuestToTable(guestId, node.dataset.tableId, seatDropOptionsFromPoint(node, event.clientX, event.clientY, guestId, event.target));
       }
     });
   });
@@ -670,6 +668,9 @@ function renderSeating() {
     });
   });
   els.seatingCanvas.querySelectorAll("[data-view-table-guests]").forEach((button) => {
+    button.addEventListener("pointerdown", (event) => {
+      event.stopPropagation();
+    });
     button.addEventListener("click", (event) => {
       event.stopPropagation();
       openTableGuestsDialog(findTable(button.dataset.viewTableGuests));
@@ -1586,6 +1587,19 @@ function bindGuestActions(root) {
     });
     node.addEventListener("pointerdown", startGuestPointerDrag);
   });
+  root.querySelectorAll(".guest-chip[data-table-id]").forEach((chip) => {
+    chip.addEventListener("dragover", allowDrop);
+    chip.addEventListener("drop", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const guestId = event.dataTransfer.getData("text/guest-id");
+      if (!guestId || guestId === chip.dataset.guestId) return;
+      assignGuestToTable(guestId, chip.dataset.tableId, {
+        targetGuestId: chip.dataset.guestId,
+        seatIndex: Number.parseInt(chip.dataset.seatIndex, 10),
+      });
+    });
+  });
   root.querySelectorAll("[data-edit-guest]").forEach((button) => {
     button.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -1666,9 +1680,7 @@ function finishGuestPointerDrag(event) {
 
   const tableNode = dropTarget?.closest?.(".seat-table");
   if (tableNode) {
-    assignGuestToTable(guestId, tableNode.dataset.tableId, {
-      seatIndex: seatIndexFromDropPoint(tableNode, event.clientX, event.clientY, guestId),
-    });
+    assignGuestToTable(guestId, tableNode.dataset.tableId, seatDropOptionsFromPoint(tableNode, event.clientX, event.clientY, guestId, dropTarget));
     return;
   }
   if (dropTarget?.closest?.("#unassignedDropZone")) {
@@ -1709,7 +1721,7 @@ function bindLayoutItemMove() {
 
 function startLayoutItemMove(event) {
   if (event.button !== 0 && event.pointerType !== "touch") return;
-  if (event.target.closest("[data-guest-id], .guest-chip, .empty-slot, .table-overflow-chip")) return;
+  if (event.target.closest("[data-guest-id], .guest-chip, .empty-slot, .table-overflow-chip, .round-table-core, [data-view-table-guests]")) return;
   const node = event.currentTarget;
   const tableId = node.dataset.tableId;
   const venueId = node.dataset.venueId;
@@ -1809,6 +1821,11 @@ function assignGuestToTable(guestId, tableId, options = {}) {
   const nextTableId = tableId || null;
   const sameTable = previousTableId === nextTableId;
   const targetSeatIndex = Number.isFinite(options.seatIndex) ? Math.round(options.seatIndex) : null;
+  const swapTarget = resolveSeatSwapTarget(guestId, nextTableId, options.targetGuestId, targetSeatIndex);
+  if (swapTarget) {
+    swapGuestSeatAssignments(guest, swapTarget);
+    return;
+  }
   if (sameTable && targetSeatIndex === null) return;
   const currentIndex = nextTableId ? tableGuests(nextTableId).findIndex((item) => item.id === guestId) : -1;
   if (sameTable && currentIndex === targetSeatIndex) return;
@@ -1830,6 +1847,34 @@ function assignGuestToTable(guestId, tableId, options = {}) {
   showToast(table
     ? `已安排 ${guest.name} 到 ${tableLabel(tableId)}${nextOccupancy > table.capacity ? `（超過容量 ${nextOccupancy}/${table.capacity}）` : ""}`
     : `已將 ${guest.name} 移回待安排`);
+}
+
+function resolveSeatSwapTarget(guestId, tableId, targetGuestId = "", targetSeatIndex = null) {
+  if (!tableId) return null;
+  const directTarget = targetGuestId && targetGuestId !== guestId ? findGuest(targetGuestId) : null;
+  if (directTarget?.tableId === tableId && directTarget.rsvp !== "declined") return directTarget;
+  if (!Number.isFinite(targetSeatIndex)) return null;
+  return tableGuests(tableId).find((guest, index) => guest.id !== guestId && index === targetSeatIndex) || null;
+}
+
+function swapGuestSeatAssignments(sourceGuest, targetGuest) {
+  const sourceTableId = sourceGuest.tableId || null;
+  const targetTableId = targetGuest.tableId || null;
+  if (!targetTableId || sourceGuest.id === targetGuest.id) return;
+  recordLayoutHistory(sourceTableId === targetTableId ? "互換桌內座位" : "互換賓客座位");
+  const sourceSeatOrder = Number.isFinite(Number(sourceGuest.seatOrder)) ? Number(sourceGuest.seatOrder) : null;
+  const targetSeatOrder = Number.isFinite(Number(targetGuest.seatOrder)) ? Number(targetGuest.seatOrder) : null;
+  sourceGuest.tableId = targetTableId;
+  sourceGuest.seatOrder = targetSeatOrder;
+  targetGuest.tableId = sourceTableId;
+  targetGuest.seatOrder = sourceTableId ? sourceSeatOrder : null;
+  normalizeSeatOrdersForTable(targetTableId);
+  if (sourceTableId && sourceTableId !== targetTableId) normalizeSeatOrdersForTable(sourceTableId);
+  saveState();
+  renderAll();
+  showToast(sourceTableId
+    ? `已互換 ${sourceGuest.name} 與 ${targetGuest.name} 的座位`
+    : `已安排 ${sourceGuest.name}，並將 ${targetGuest.name} 移回待安排`);
 }
 
 function applyGuestSeatOrder(guestId, tableId, targetSeatIndex = null) {
@@ -1872,11 +1917,6 @@ function normalizeAllSeatOrders(source = state) {
 function seatIndexFromDropPoint(tableNode, clientX, clientY, guestId) {
   if (!tableNode) return null;
   const tableId = tableNode.dataset.tableId;
-  const targetChip = document.elementFromPoint(clientX, clientY)?.closest?.(".guest-chip[data-table-id]");
-  if (targetChip?.dataset.tableId === tableId && targetChip.dataset.guestId !== guestId) {
-    const targetIndex = Number.parseInt(targetChip.dataset.seatIndex, 10);
-    if (Number.isFinite(targetIndex)) return targetIndex;
-  }
   const nextCount = Math.max(1, tableGuests(tableId).filter((guest) => guest.id !== guestId).length + 1);
   const rect = tableNode.getBoundingClientRect();
   const centerX = rect.left + rect.width / 2;
@@ -1884,6 +1924,19 @@ function seatIndexFromDropPoint(tableNode, clientX, clientY, guestId) {
   const angle = (Math.atan2(clientY - centerY, clientX - centerX) * 180) / Math.PI;
   const normalized = (angle + 90 + 360) % 360;
   return Math.round(normalized / (360 / nextCount)) % nextCount;
+}
+
+function seatDropOptionsFromPoint(tableNode, clientX, clientY, guestId, target = null) {
+  const tableId = tableNode?.dataset?.tableId || "";
+  const targetChip = target?.closest?.(".guest-chip[data-table-id]")
+    || document.elementFromPoint(clientX, clientY)?.closest?.(".guest-chip[data-table-id]");
+  const targetGuestId = targetChip?.dataset.tableId === tableId && targetChip.dataset.guestId !== guestId
+    ? targetChip.dataset.guestId
+    : "";
+  return {
+    seatIndex: seatIndexFromDropPoint(tableNode, clientX, clientY, guestId),
+    targetGuestId,
+  };
 }
 
 function openSettingsDialog() {
