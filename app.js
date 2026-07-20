@@ -20,8 +20,9 @@ const GIFT_DESK_DEPTH = Math.round(TABLE_CARD_DEPTH * 0.5);
 const BACKUP_VERSION = 1;
 const SNAPSHOT_KEY = "wedding.seating.snapshots.v1";
 const CLOUD_SYNC_CONFIG_KEY = "wedding.seating.cloudSync.v1";
-const AUTO_SNAPSHOT_INTERVAL_MS = 2 * 60 * 1000;
-const MAX_AUTO_SNAPSHOTS = 8;
+const AUTO_SNAPSHOT_BUFFER_MS = 60 * 1000;
+const MAX_AUTO_SNAPSHOTS = 16;
+const CLOUD_PAYLOAD_VERSION = 2;
 const LAYOUT_HISTORY_LIMIT = 30;
 const CLOUD_SYNC_DEBOUNCE_MS = 1800;
 const CLOUD_SYNC_POLL_MS = 30000;
@@ -192,6 +193,9 @@ let cloudSyncTimer = null;
 let cloudSyncPollTimer = null;
 let cloudSyncBusy = false;
 let cloudSyncLastMessage = "";
+let snapshotTimer = null;
+let pendingSnapshotReason = "";
+let pendingSnapshotSignature = "";
 const guestInlineEditTimers = new Map();
 
 const els = {
@@ -382,6 +386,10 @@ function bindEvents() {
   els.seatingCanvas.addEventListener("focusout", hideGuestNameTooltip);
   els.seatingCanvas.addEventListener("scroll", hideGuestNameTooltip);
   window.addEventListener("keydown", handleCanvasShortcutZoom);
+  window.addEventListener("beforeunload", () => flushPendingAutoSnapshot({ sync: false }));
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") flushPendingAutoSnapshot({ sync: false });
+  });
   els.fitCanvasButton.addEventListener("click", () => fitCanvasToLayout());
   els.lockLayoutButton.addEventListener("click", () => setLayoutLock(!state.canvas.layoutLocked));
   els.undoLayoutButton.addEventListener("click", undoLayoutChange);
@@ -2366,7 +2374,7 @@ async function handleRestoreFile(event) {
 }
 
 function extractBackupState(data) {
-  const candidate = data?.state || data;
+  const candidate = cloudPayloadStateCandidate(data);
   if (!candidate || !Array.isArray(candidate.guests) || !Array.isArray(candidate.tables) || !Array.isArray(candidate.gifts)) {
     throw new Error("這不是有效的婚禮座位規劃備份檔");
   }
@@ -2374,7 +2382,7 @@ function extractBackupState(data) {
 }
 
 function restorePlannerState(nextState, sourceLabel) {
-  writeAutoSnapshot(`還原${sourceLabel}前`);
+  writeAutoSnapshot(`還原${sourceLabel}前`, { sync: false });
   state = normalizeState({
     ...nextState,
     meta: {
@@ -2390,31 +2398,147 @@ function restorePlannerState(nextState, sourceLabel) {
 }
 
 function maybeCreateAutoSnapshot(reason) {
-  const snapshots = loadAutoSnapshots();
-  const last = snapshots[0];
-  if (last && Date.now() - new Date(last.createdAt).getTime() < AUTO_SNAPSHOT_INTERVAL_MS) return;
-  writeAutoSnapshot(reason);
+  scheduleBufferedAutoSnapshot(reason);
 }
 
-function writeAutoSnapshot(reason) {
+function scheduleBufferedAutoSnapshot(reason = "自動保存") {
+  const signature = snapshotSignatureForState(state);
+  if (snapshotMatchesExisting(signature)) {
+    clearPendingAutoSnapshot();
+    return;
+  }
+  pendingSnapshotReason = mergeSnapshotReasons(pendingSnapshotReason, reason);
+  pendingSnapshotSignature = signature;
+  window.clearTimeout(snapshotTimer);
+  snapshotTimer = window.setTimeout(() => flushPendingAutoSnapshot(), AUTO_SNAPSHOT_BUFFER_MS);
+}
+
+function clearPendingAutoSnapshot() {
+  pendingSnapshotReason = "";
+  pendingSnapshotSignature = "";
+  window.clearTimeout(snapshotTimer);
+  snapshotTimer = null;
+}
+
+function flushPendingAutoSnapshot(options = {}) {
+  if (!pendingSnapshotSignature) return null;
+  const reason = options.reason || pendingSnapshotReason || "自動保存";
+  const signature = snapshotSignatureForState(state);
+  if (signature !== pendingSnapshotSignature) {
+    pendingSnapshotSignature = signature;
+  }
+  clearPendingAutoSnapshot();
+  return writeAutoSnapshot(reason, { ...options, signature });
+}
+
+function writeAutoSnapshot(reason, options = {}) {
+  const snapshotState = options.state || clonePlannerState();
+  const signature = options.signature || snapshotSignatureForState(snapshotState);
+  if (!options.force && snapshotMatchesExisting(signature)) return null;
   const snapshot = {
     id: uid("snapshot"),
     reason,
     createdAt: nowISO(),
-    state: clonePlannerState(),
+    signature,
+    state: snapshotState,
   };
-  const snapshots = [snapshot, ...loadAutoSnapshots()].slice(0, MAX_AUTO_SNAPSHOTS);
-  localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(snapshots));
+  const snapshots = mergeAutoSnapshots([snapshot], loadAutoSnapshots());
+  persistAutoSnapshots(snapshots, { sync: options.sync !== false });
+  return snapshot;
+}
+
+function persistAutoSnapshots(snapshots, options = {}) {
+  const normalized = mergeAutoSnapshots(snapshots);
+  localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(normalized));
   renderBackupStatus();
+  if (options.sync !== false) scheduleCloudPush();
 }
 
 function loadAutoSnapshots() {
   try {
     const snapshots = JSON.parse(localStorage.getItem(SNAPSHOT_KEY) || "[]");
-    return Array.isArray(snapshots) ? snapshots.filter((item) => item?.state) : [];
+    return normalizeAutoSnapshots(snapshots);
   } catch {
     return [];
   }
+}
+
+function mergeSnapshotReasons(previous, next) {
+  const first = String(previous || "").trim();
+  const second = String(next || "").trim();
+  if (!first) return second || "自動保存";
+  if (!second || first === second) return first;
+  if (first.includes(second)) return first;
+  const parts = first.split("、").concat(second).filter(Boolean);
+  return Array.from(new Set(parts)).slice(0, 3).join("、");
+}
+
+function normalizeAutoSnapshots(...snapshotSets) {
+  const snapshots = snapshotSets.flat().filter((item) => item?.state);
+  return snapshots
+    .map((item) => {
+      const stateValue = item.state;
+      if (!Array.isArray(stateValue.guests) || !Array.isArray(stateValue.tables) || !Array.isArray(stateValue.gifts)) return null;
+      return {
+        id: item.id || uid("snapshot"),
+        reason: String(item.reason || "自動快照"),
+        createdAt: validDateString(item.createdAt) || nowISO(),
+        signature: item.signature || snapshotSignatureForState(stateValue),
+        state: stateValue,
+      };
+    })
+    .filter(Boolean);
+}
+
+function mergeAutoSnapshots(...snapshotSets) {
+  const bySignature = new Map();
+  normalizeAutoSnapshots(...snapshotSets)
+    .sort((a, b) => sortableDateValue(b.createdAt) - sortableDateValue(a.createdAt))
+    .forEach((snapshot) => {
+      if (!bySignature.has(snapshot.signature)) bySignature.set(snapshot.signature, snapshot);
+    });
+  return Array.from(bySignature.values())
+    .sort((a, b) => sortableDateValue(b.createdAt) - sortableDateValue(a.createdAt))
+    .slice(0, MAX_AUTO_SNAPSHOTS);
+}
+
+function snapshotMatchesExisting(signature) {
+  if (!signature) return false;
+  return loadAutoSnapshots()[0]?.signature === signature;
+}
+
+function snapshotSignatureForState(source) {
+  return stableStringify(snapshotComparableState(source));
+}
+
+function snapshotComparableState(source) {
+  const comparable = structuredClone(source || {});
+  if (comparable.meta) comparable.meta = {};
+  if (comparable.canvas) {
+    delete comparable.canvas.zoom;
+    delete comparable.canvas.layoutLocked;
+  }
+  if (Array.isArray(comparable.guests)) {
+    comparable.guests = comparable.guests.map(({ createdAt, updatedAt, ...guest }) => guest);
+  }
+  if (Array.isArray(comparable.gifts)) {
+    comparable.gifts = comparable.gifts.map(({ createdAt, updatedAt, ...gift }) => gift);
+  }
+  return comparable;
+}
+
+function stableStringify(value) {
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
+  if (value && typeof value === "object") {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function validDateString(value) {
+  if (!value) return "";
+  const time = new Date(value).getTime();
+  return Number.isFinite(time) ? value : "";
 }
 
 function openSnapshotDialog() {
@@ -2441,7 +2565,7 @@ function renderSnapshotList() {
         </article>
       `;
     }).join("")
-    : empty("目前還沒有自動快照。資料更新後會自動保留最近幾筆版本。");
+    : empty("目前還沒有快照。資料有實質修改並停一小段時間後，會自動保留可還原版本。");
 
   els.snapshotList.querySelectorAll("[data-restore-snapshot]").forEach((button) => {
     button.addEventListener("click", () => confirmRestoreSnapshot(button.dataset.restoreSnapshot));
@@ -2492,6 +2616,31 @@ function normalizeCloudSyncConfig(value) {
 
 function cloudSyncConfigured() {
   return Boolean(cloudSyncConfig.url && cloudSyncConfig.anonKey && cloudSyncConfig.syncKey);
+}
+
+function createCloudPayload(snapshots = loadAutoSnapshots()) {
+  return {
+    app: "wedding-seat-planner",
+    version: CLOUD_PAYLOAD_VERSION,
+    plannerState: clonePlannerState(),
+    snapshots: mergeAutoSnapshots(snapshots),
+    exportedAt: nowISO(),
+  };
+}
+
+function unpackCloudPayload(payload) {
+  const stateCandidate = cloudPayloadStateCandidate(payload);
+  if (!stateCandidate || !Array.isArray(stateCandidate.guests) || !Array.isArray(stateCandidate.tables) || !Array.isArray(stateCandidate.gifts)) {
+    throw new Error("雲端資料格式不正確");
+  }
+  return {
+    state: normalizeState(stateCandidate),
+    snapshots: mergeAutoSnapshots(Array.isArray(payload?.snapshots) ? payload.snapshots : []),
+  };
+}
+
+function cloudPayloadStateCandidate(payload) {
+  return payload?.plannerState || payload?.state || payload;
 }
 
 function openCloudSyncDialog() {
@@ -2607,12 +2756,17 @@ async function pushCloudState(options = {}) {
     if (!silent) showToast("請先完成雲端同步設定");
     return;
   }
+  if (manual) flushPendingAutoSnapshot({ reason: "手動同步前", sync: false });
   setCloudBusy(true, "正在上傳本機資料...");
   try {
     const syncedAt = nowISO();
+    const remote = await fetchCloudRecord();
+    const remoteSnapshots = remote ? unpackCloudPayload(remote.payload).snapshots : [];
+    const snapshots = mergeAutoSnapshots(loadAutoSnapshots(), remoteSnapshots);
+    persistAutoSnapshots(snapshots, { sync: false });
     const payload = {
       sync_key: cloudSyncConfig.syncKey,
-      payload: clonePlannerState(),
+      payload: createCloudPayload(snapshots),
       updated_at: syncedAt,
     };
     const response = await fetch(`${cloudSyncConfig.url}/rest/v1/wedding_planner_sync?on_conflict=sync_key`, {
@@ -2684,8 +2838,10 @@ async function fetchCloudRecord() {
 
 function applyCloudState(payload, updatedAt, options = {}) {
   const { silent = false } = options;
-  writeAutoSnapshot("套用雲端資料前");
-  state = normalizeState(payload);
+  const cloudPayload = unpackCloudPayload(payload);
+  writeAutoSnapshot("套用雲端資料前", { sync: false });
+  state = cloudPayload.state;
+  persistAutoSnapshots(mergeAutoSnapshots(loadAutoSnapshots(), cloudPayload.snapshots), { sync: false });
   cloudSyncConfig.lastSyncedAt = updatedAt || nowISO();
   localStorage.setItem(CLOUD_SYNC_CONFIG_KEY, JSON.stringify(cloudSyncConfig));
   layoutUndoStack = [];
@@ -2693,11 +2849,13 @@ function applyCloudState(payload, updatedAt, options = {}) {
   saveState({ snapshotReason: "套用雲端資料", createSnapshot: false, skipCloudSync: true });
   renderAll();
   renderCloudSyncStatus("已套用雲端資料");
+  scheduleCloudPush();
   if (!silent) showToast("已套用雲端資料");
 }
 
 function remoteIsNewer(updatedAt, payload) {
-  const remoteTime = new Date(updatedAt || payload?.meta?.updatedAt || 0).getTime();
+  const cloudPayload = unpackCloudPayload(payload);
+  const remoteTime = new Date(updatedAt || cloudPayload.state?.meta?.updatedAt || 0).getTime();
   const localTime = new Date(state.meta?.updatedAt || 0).getTime();
   return Number.isFinite(remoteTime) && remoteTime > localTime + 1000;
 }
