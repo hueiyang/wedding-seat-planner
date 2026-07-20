@@ -1397,9 +1397,9 @@ function guestChip(guest, showNames) {
     <div class="guest-chip ${guest.rsvp} ${specialClass}" draggable="true" data-guest-id="${guest.id}">
       <button class="guest-chip-main" data-edit-guest="${guest.id}" type="button" aria-label="編輯${escapeHTML(guest.name)}">
         <span>${showNames ? escapeHTML(guest.name) : "賓客"}</span>
-        ${guest.companions > 0 ? `<span class="party-size">+${guest.companions}</span>` : ""}
+        <span class="party-size">${partySize(guest)}位</span>
         ${vegetarianCount ? `<span class="guest-special vegetarian">素${vegetarianCount}</span>` : ""}
-        ${childSeats ? `<span class="guest-special child">童${childSeats}</span>` : ""}
+        ${childSeats ? `<span class="guest-special child">兒${childSeats}</span>` : ""}
       </button>
       <button class="chip-remove" data-unassign-guest="${guest.id}" type="button" aria-label="將${escapeHTML(guest.name)}移回待安排" title="移回待安排">${icons.x}</button>
     </div>
