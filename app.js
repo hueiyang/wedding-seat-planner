@@ -13,6 +13,17 @@ const LEGACY_CANVAS_HEIGHT = 1140;
 const CANVAS_GROW_PADDING = 900;
 const TABLE_CARD_WIDTH = 212;
 const TABLE_CARD_DEPTH = 154;
+const TABLE_GUEST_PREVIEW_LIMIT = 8;
+const TABLE_RING_SLOTS = {
+  1: [{ x: 50, y: 82 }],
+  2: [{ x: 32, y: 76 }, { x: 68, y: 76 }],
+  3: [{ x: 50, y: 17 }, { x: 75, y: 72 }, { x: 25, y: 72 }],
+  4: [{ x: 50, y: 14 }, { x: 79, y: 33 }, { x: 50, y: 86 }, { x: 21, y: 67 }],
+  5: [{ x: 50, y: 14 }, { x: 79, y: 32 }, { x: 75, y: 70 }, { x: 50, y: 86 }, { x: 21, y: 58 }],
+  6: [{ x: 50, y: 14 }, { x: 76, y: 28 }, { x: 76, y: 72 }, { x: 50, y: 86 }, { x: 24, y: 72 }, { x: 24, y: 28 }],
+  7: [{ x: 50, y: 14 }, { x: 75, y: 26 }, { x: 82, y: 38 }, { x: 70, y: 78 }, { x: 50, y: 86 }, { x: 24, y: 68 }, { x: 18, y: 34 }],
+  8: [{ x: 50, y: 14 }, { x: 75, y: 25 }, { x: 82, y: 37 }, { x: 79, y: 66 }, { x: 50, y: 86 }, { x: 21, y: 66 }, { x: 18, y: 37 }, { x: 25, y: 25 }],
+};
 const STAGE_WIDTH = TABLE_CARD_WIDTH * 2;
 const STAGE_DEPTH = Math.round(TABLE_CARD_DEPTH * 0.5);
 const GIFT_DESK_WIDTH = Math.round(TABLE_CARD_WIDTH * 0.5);
@@ -192,6 +203,7 @@ let cloudSyncConfig = loadCloudSyncConfig();
 let cloudSyncTimer = null;
 let cloudSyncPollTimer = null;
 let cloudSyncBusy = false;
+let cloudSyncReadyForAutoPush = false;
 let cloudSyncLastMessage = "";
 let snapshotTimer = null;
 let pendingSnapshotReason = "";
@@ -587,6 +599,7 @@ function renderAccountStatus() {
 function getSystemStatusText() {
   if (cloudSyncConfigured()) {
     const syncedText = cloudSyncConfig.lastSyncedAt ? ` · ${formatDateTime(cloudSyncConfig.lastSyncedAt)}` : "";
+    if (cloudSyncConfig.autoSync && !cloudSyncReadyForAutoPush) return `雲端待確認${syncedText}`;
     return `${cloudSyncConfig.autoSync ? "雲端自動同步" : "雲端手動同步"}${syncedText}`;
   }
   return state.meta?.updatedAt ? `本機已保存 · ${formatDateTime(state.meta.updatedAt)}` : "本機自動保存";
@@ -661,6 +674,12 @@ function renderSeating() {
       openTableDialog(findTable(button.dataset.editTable));
     });
   });
+  els.seatingCanvas.querySelectorAll("[data-view-table-guests]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      openTableGuestsDialog(findTable(button.dataset.viewTableGuests));
+    });
+  });
   bindGuestActions(els.seatingCanvas);
   bindLayoutItemMove();
 }
@@ -685,40 +704,61 @@ function renderSeatTable(table, showNames) {
   const assigned = state.guests
     .filter((guest) => guest.tableId === table.id && guest.rsvp !== "declined")
     .sort((a, b) => a.name.localeCompare(b.name, "zh-Hant"));
-  const openSeats = Math.max(0, table.capacity - table.occupancy);
-  const emptySlots = Math.min(openSeats, Math.max(0, 4 - assigned.length));
+  const hasHiddenGuests = assigned.length > TABLE_GUEST_PREVIEW_LIMIT;
+  const visibleLimit = hasHiddenGuests ? TABLE_GUEST_PREVIEW_LIMIT - 1 : TABLE_GUEST_PREVIEW_LIMIT;
+  const visibleGuests = assigned.slice(0, visibleLimit);
+  const hiddenGuests = assigned.slice(visibleLimit);
+  const hiddenPeople = hiddenGuests.reduce((sum, guest) => sum + partySize(guest), 0);
+  const ringItemCount = visibleGuests.length + (hiddenGuests.length ? 1 : 0);
   const seatStatus = tableSeatStatus(table);
   const specialCounts = tableSpecialCounts(table.id);
   const locked = Boolean(state.canvas.layoutLocked);
+  const visualSize = tableVisualSize(ringItemCount);
+  const summaryParts = [
+    seatStatus.label,
+    specialCounts.vegetarianCount ? `素${specialCounts.vegetarianCount}` : "",
+    specialCounts.childSeats ? `童${specialCounts.childSeats}` : "",
+  ].filter(Boolean);
 
   return `
     <section class="seat-table ${table.over ? "over-capacity" : ""} ${table.hidden ? "hidden-by-filter" : ""} ${locked ? "locked-layout" : ""} table-status-${seatStatus.className}"
       data-table-id="${table.id}"
-      style="left:${table.x}px;top:${table.y}px">
-      <div class="table-card-header">
-        <div class="table-title">
-          <strong class="table-name">${escapeHTML(tableDisplayName(table))}</strong>
-          <span class="table-alias">${escapeHTML(table.alias || "未設定別名")}</span>
-        </div>
-        <button class="move-handle table-status-box ${seatStatus.className}" data-move-table="${table.id}" type="button" aria-label="${escapeHTML(seatStatus.title)}${locked ? "；桌位已鎖定" : "；拖曳移動桌位"}" title="${escapeHTML(seatStatus.title)}${locked ? "；桌位已鎖定" : "；拖曳移動桌位"}">
-          <span class="table-status-main">${locked ? icons.lock : seatStatus.icon}<span>${escapeHTML(seatStatus.label)}</span></span>
-          ${specialCounts.vegetarianCount || specialCounts.childSeats ? `
-            <span class="table-specials">
-              ${specialCounts.vegetarianCount ? `<span class="special-pill vegetarian">素${specialCounts.vegetarianCount}</span>` : ""}
-              ${specialCounts.childSeats ? `<span class="special-pill child">童${specialCounts.childSeats}</span>` : ""}
-            </span>
-          ` : ""}
-        </button>
-      </div>
-      <button class="round-table ${table.kind === "head" ? "head" : ""}" data-edit-table="${table.id}" type="button" aria-label="編輯${escapeHTML(tableDisplayName(table))}">
-        ${table.kind === "head" ? "囍" : icons.table}
+      style="left:${table.x}px;top:${table.y}px;--table-size:${visualSize}px"
+      aria-label="${escapeHTML(`${tableDisplayName(table)}，${summaryParts.join(" ")}`)}"
+      title="${escapeHTML(locked ? `${seatStatus.title}；桌位已鎖定` : `${seatStatus.title}；拖曳移動桌位`)}">
+      <button class="round-table-core ${table.kind === "head" ? "head" : ""}" data-edit-table="${table.id}" type="button" aria-label="編輯${escapeHTML(tableDisplayName(table))}">
+        <span class="table-name">${escapeHTML(tableDisplayName(table))}</span>
+        <span class="table-alias">${escapeHTML(table.alias || "未設定別名")}</span>
+        <span class="table-center-summary ${seatStatus.className}">
+          ${summaryParts.map((part) => `<span>${escapeHTML(part)}</span>`).join("")}
+        </span>
       </button>
       <div class="table-guests">
-        ${assigned.map((guest) => guestChip(guest, showNames)).join("")}
-        ${Array.from({ length: emptySlots }, () => '<span class="empty-slot">空位</span>').join("")}
+        ${visibleGuests.map((guest, index) => guestChip(guest, showNames, { ring: true, position: tableRingSlot(index, ringItemCount) })).join("")}
+        ${hiddenGuests.length ? `
+          <button class="table-overflow-chip" data-view-table-guests="${table.id}" type="button" style="${tableRingStyle(tableRingSlot(ringItemCount - 1, ringItemCount))}" title="查看${escapeHTML(tableDisplayName(table))}完整賓客">
+            +${hiddenGuests.length}組 / +${hiddenPeople}位
+          </button>
+        ` : ""}
       </div>
     </section>
   `;
+}
+
+function tableVisualSize(guestCount) {
+  if (guestCount >= TABLE_GUEST_PREVIEW_LIMIT) return 272;
+  if (guestCount >= 6) return 260;
+  if (guestCount >= 3) return 242;
+  return 226;
+}
+
+function tableRingSlot(index, count) {
+  const safeCount = clamp(count, 1, TABLE_GUEST_PREVIEW_LIMIT);
+  return TABLE_RING_SLOTS[safeCount][index] || TABLE_RING_SLOTS[TABLE_GUEST_PREVIEW_LIMIT][index] || TABLE_RING_SLOTS[1][0];
+}
+
+function tableRingStyle(position) {
+  return `--chip-x:${position.x}%;--chip-y:${position.y}%`;
 }
 
 function renderUnassigned() {
@@ -1443,14 +1483,16 @@ function updateQuickGiftHint() {
   els.quickGiftHint.textContent = "輸入賓客姓名或電話後，會自動提示桌次與重複禮金。";
 }
 
-function guestChip(guest, showNames) {
+function guestChip(guest, showNames, options = {}) {
   const vegetarianCount = Number.parseInt(guest.vegetarianCount, 10) || 0;
   const childSeats = Number.parseInt(guest.childSeats, 10) || 0;
   const specialClass = vegetarianCount && childSeats ? "has-special-mixed" : vegetarianCount ? "has-vegetarian" : childSeats ? "has-child-seat" : "";
   const displayName = showNames ? guest.name : "賓客";
   const tooltipAttribute = showNames ? ` data-full-name="${escapeHTML(guest.name)}"` : "";
+  const ringClass = options.ring ? " ring-chip" : "";
+  const styleAttribute = options.position ? ` style="${escapeHTML(tableRingStyle(options.position))}"` : "";
   return `
-    <div class="guest-chip ${guest.rsvp} ${specialClass}" draggable="true" data-guest-id="${guest.id}">
+    <div class="guest-chip ${guest.rsvp} ${specialClass}${ringClass}" draggable="true" data-guest-id="${guest.id}"${styleAttribute}>
       <button class="guest-chip-main" data-edit-guest="${guest.id}"${tooltipAttribute} type="button" aria-label="編輯${escapeHTML(guest.name)}">
         <span class="guest-chip-name">${escapeHTML(displayName)}</span>
         <span class="party-size">${partySize(guest)}位</span>
@@ -1663,7 +1705,7 @@ function bindLayoutItemMove() {
 
 function startLayoutItemMove(event) {
   if (event.button !== 0 && event.pointerType !== "touch") return;
-  if (event.target.closest("[data-guest-id], .guest-chip, .empty-slot")) return;
+  if (event.target.closest("[data-guest-id], .guest-chip, .empty-slot, .table-overflow-chip")) return;
   const node = event.currentTarget;
   const tableId = node.dataset.tableId;
   const venueId = node.dataset.venueId;
@@ -2659,6 +2701,7 @@ function closeCloudSyncDialog() {
 function saveCloudSyncSettings(event) {
   event.preventDefault();
   const data = Object.fromEntries(new FormData(els.cloudSyncForm));
+  cloudSyncReadyForAutoPush = false;
   cloudSyncConfig = normalizeCloudSyncConfig({
     url: data.url,
     anonKey: data.anonKey,
@@ -2682,6 +2725,7 @@ function confirmClearCloudSyncSettings() {
     actionLabel: "確認清除",
     onConfirm: () => {
       cloudSyncConfig = normalizeCloudSyncConfig({});
+      cloudSyncReadyForAutoPush = false;
       localStorage.removeItem(CLOUD_SYNC_CONFIG_KEY);
       restartCloudSyncPolling();
       renderCloudSyncStatus("已清除同步設定");
@@ -2696,8 +2740,9 @@ function renderCloudSyncStatus(message = cloudSyncLastMessage) {
   if (message) cloudSyncLastMessage = message;
   const configured = cloudSyncConfigured();
   const syncedText = cloudSyncConfig.lastSyncedAt ? ` · ${formatDateTime(cloudSyncConfig.lastSyncedAt)}` : "";
+  const syncModeText = cloudSyncConfig.autoSync && !cloudSyncReadyForAutoPush ? "自動同步待確認" : cloudSyncConfig.autoSync ? "自動同步" : "手動同步";
   els.cloudSyncStatus.textContent = configured
-    ? `${cloudSyncConfig.autoSync ? "自動同步" : "手動同步"}${syncedText}`
+    ? `${syncModeText}${syncedText}`
     : "本機模式";
   els.cloudSyncStatus.classList.toggle("connected", configured);
   renderAccountStatus();
@@ -2728,6 +2773,10 @@ function restartCloudSyncPolling() {
 
 function scheduleCloudPush() {
   if (!cloudSyncConfigured() || !cloudSyncConfig.autoSync) return;
+  if (!cloudSyncReadyForAutoPush) {
+    renderCloudSyncStatus("已暫停自動上傳，請先下載雲端或手動上傳本機");
+    return;
+  }
   window.clearTimeout(cloudSyncTimer);
   cloudSyncTimer = window.setTimeout(() => pushCloudState({ silent: true }), CLOUD_SYNC_DEBOUNCE_MS);
 }
@@ -2737,15 +2786,28 @@ async function runCloudStartupSync() {
   try {
     const remote = await fetchCloudRecord();
     if (!remote) {
-      await pushCloudState({ silent: true });
+      cloudSyncReadyForAutoPush = false;
+      renderCloudSyncStatus("雲端尚無資料，請手動上傳本機資料");
+      return;
+    }
+    const cloudPayload = unpackCloudPayload(remote.payload);
+    const remoteSignature = snapshotSignatureForState(cloudPayload.state);
+    const localSignature = snapshotSignatureForState(state);
+    if (remoteSignature === localSignature) {
+      cloudSyncReadyForAutoPush = true;
+      cloudSyncConfig.lastSyncedAt = remote.updated_at || cloudSyncConfig.lastSyncedAt;
+      localStorage.setItem(CLOUD_SYNC_CONFIG_KEY, JSON.stringify(cloudSyncConfig));
+      renderCloudSyncStatus("雲端資料已核對");
       return;
     }
     if (remoteIsNewer(remote.updated_at, remote.payload)) {
-      applyCloudState(remote.payload, remote.updated_at, { silent: true });
+      applyCloudState(remote.payload, remote.updated_at, { silent: true, allowAutoPush: false });
       return;
     }
-    await pushCloudState({ silent: true });
+    cloudSyncReadyForAutoPush = false;
+    renderCloudSyncStatus("本機與雲端資料不同，請手動選擇下載或上傳");
   } catch (error) {
+    cloudSyncReadyForAutoPush = false;
     renderCloudSyncStatus(`雲端同步失敗：${error.message}`);
   }
 }
@@ -2776,6 +2838,7 @@ async function pushCloudState(options = {}) {
     });
     await assertCloudResponse(response, "上傳雲端失敗");
     cloudSyncConfig.lastSyncedAt = syncedAt;
+    cloudSyncReadyForAutoPush = true;
     localStorage.setItem(CLOUD_SYNC_CONFIG_KEY, JSON.stringify(cloudSyncConfig));
     renderCloudSyncStatus("本機資料已上傳雲端");
     if (manual && !silent) showToast("本機資料已上傳雲端");
@@ -2837,19 +2900,20 @@ async function fetchCloudRecord() {
 }
 
 function applyCloudState(payload, updatedAt, options = {}) {
-  const { silent = false } = options;
+  const { silent = false, allowAutoPush = false } = options;
   const cloudPayload = unpackCloudPayload(payload);
   writeAutoSnapshot("套用雲端資料前", { sync: false });
   state = cloudPayload.state;
   persistAutoSnapshots(mergeAutoSnapshots(loadAutoSnapshots(), cloudPayload.snapshots), { sync: false });
   cloudSyncConfig.lastSyncedAt = updatedAt || nowISO();
+  cloudSyncReadyForAutoPush = true;
   localStorage.setItem(CLOUD_SYNC_CONFIG_KEY, JSON.stringify(cloudSyncConfig));
   layoutUndoStack = [];
   layoutRedoStack = [];
   saveState({ snapshotReason: "套用雲端資料", createSnapshot: false, skipCloudSync: true });
   renderAll();
   renderCloudSyncStatus("已套用雲端資料");
-  scheduleCloudPush();
+  if (allowAutoPush) scheduleCloudPush();
   if (!silent) showToast("已套用雲端資料");
 }
 
@@ -3241,7 +3305,10 @@ function scrollCanvasToPoint(x, y) {
 function layoutBoundsFromState() {
   const items = [
     ...state.venueItems.map((item) => ({ ...item, width: item.width || 140, height: item.height || 44 })),
-    ...state.tables.map((table) => ({ ...table, width: 240, height: 230 })),
+    ...state.tables.map((table) => {
+      const size = tableVisualSize(tableGuests(table.id).length);
+      return { ...table, width: size, height: size };
+    }),
   ];
   return items.reduce((bounds, item) => ({
     left: Math.min(bounds.left, item.x - item.width / 2),
