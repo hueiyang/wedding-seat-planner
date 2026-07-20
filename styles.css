@@ -859,7 +859,10 @@ button > span {
 }
 
 .guest-chip {
-  max-width: 148px;
+  width: max-content;
+  max-width: 230px;
+  flex: 0 1 auto;
+  flex-wrap: nowrap;
   min-height: 25px;
   gap: 5px;
   padding: 0 4px 0 8px;
@@ -869,6 +872,7 @@ button > span {
   background: #f7fbf8;
   font-size: 11px;
   font-weight: 850;
+  white-space: nowrap;
 }
 
 .guest-chip-main,
@@ -889,7 +893,9 @@ button > span {
   justify-content: flex-start;
   gap: 5px;
   flex: 1 1 auto;
+  flex-wrap: nowrap;
   padding: 0;
+  white-space: nowrap;
 }
 
 .chip-remove {
@@ -960,7 +966,12 @@ button > span {
 }
 
 .guest-chip .party-size {
+  flex: 0 0 auto;
   color: var(--subtle);
+}
+
+.guest-chip .guest-special {
+  flex: 0 0 auto;
 }
 
 .canvas-tooltip {
@@ -1223,6 +1234,16 @@ button > span {
 .guest-need-pill.child {
   color: #23526c;
   background: #eaf5fb;
+}
+
+.guest-need-pill.relation.groom {
+  color: #23526c;
+  background: #eaf5fb;
+}
+
+.guest-need-pill.relation.bride {
+  color: var(--plum);
+  background: #f6e8f0;
 }
 
 .guest-need-meta {
@@ -1942,6 +1963,11 @@ button > span {
 .table-guest-pill.people {
   color: var(--ink);
   background: #fff;
+}
+
+.table-guest-pill.meal.regular {
+  color: #72532e;
+  background: #fff1df;
 }
 
 .table-guest-pill.vegetarian {

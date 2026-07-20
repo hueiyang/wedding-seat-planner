@@ -1273,12 +1273,13 @@ function tableGuestDetailRow(guest) {
   const childSeats = Number.parseInt(guest.childSeats, 10) || 0;
   const relationClass = guest.relation === "女方親友" ? "bride" : "groom";
   const relationShort = guest.relation.replace("親友", "");
+  const mealLabel = vegetarianCount ? `素${vegetarianCount}` : "葷";
   const chips = [
-    `<span class="table-guest-pill relation ${relationClass}">${escapeHTML(relationShort)}</span>`,
-    `<span class="table-guest-pill people">${partySize(guest)}位</span>`,
-    vegetarianCount ? `<span class="table-guest-pill vegetarian">素${vegetarianCount}</span>` : "",
+    `<span class="table-guest-pill meal ${vegetarianCount ? "vegetarian" : "regular"}">${escapeHTML(mealLabel)}</span>`,
     childSeats ? `<span class="table-guest-pill child">兒${childSeats}</span>` : "",
     guest.rsvp === "pending" ? `<span class="table-guest-pill pending">未回覆</span>` : "",
+    `<span class="table-guest-pill people">${partySize(guest)}位</span>`,
+    `<span class="table-guest-pill relation ${relationClass}">${escapeHTML(relationShort)}</span>`,
   ].filter(Boolean).join("");
 
   return `
@@ -1438,13 +1439,15 @@ function guestNeedStrip(guest, table) {
   const vegetarianCount = Number.parseInt(guest.vegetarianCount, 10) || 0;
   const childSeats = Number.parseInt(guest.childSeats, 10) || 0;
   const mealLabel = vegetarianCount ? `素${vegetarianCount}` : "葷";
+  const relationClass = guest.relation === "女方親友" ? "bride" : "groom";
   const relationShort = guest.relation.replace("親友", "");
-  const meta = [relationShort, guest.group || "", table && table !== "待安排" ? table : ""].filter(Boolean).join(" · ");
+  const meta = [guest.group || "", table && table !== "待安排" ? table : ""].filter(Boolean).join(" · ");
   return `
     <div class="guest-need-strip" aria-label="${escapeHTML(`${partySize(guest)}位，${mealLabel}${childSeats ? `，兒童椅${childSeats}` : ""}`)}">
       <span class="guest-need-pill people">${partySize(guest)}位</span>
       <span class="guest-need-pill meal ${vegetarianCount ? "vegetarian" : "regular"}">${escapeHTML(mealLabel)}</span>
       ${childSeats ? `<span class="guest-need-pill child">兒${childSeats}</span>` : ""}
+      <span class="guest-need-pill relation ${relationClass}">${escapeHTML(relationShort)}</span>
       ${meta ? `<span class="guest-need-meta">${escapeHTML(meta)}</span>` : ""}
     </div>
   `;
