@@ -80,6 +80,20 @@ const rsvpMeta = {
   declined: { label: "不參加", className: "declined" },
 };
 
+const GUEST_SORT_COLUMNS = [
+  { key: "name", label: "姓名", align: "cell-left", type: "text", value: (guest) => guest.name || "" },
+  { key: "rsvp", label: "回覆狀態", align: "cell-center", type: "number", value: (guest) => rsvpSort(guest) },
+  { key: "assignment", label: "座位狀態", align: "cell-center", type: "number", value: (guest) => guestAssignmentSort(guest) },
+  { key: "relation", label: "關係", align: "cell-center", type: "text", value: (guest) => guest.relation || "" },
+  { key: "invitation", label: "喜帖", align: "cell-center", type: "number", value: (guest) => invitationSortRank(guest.invitationType) },
+  { key: "companions", label: "同行人數", align: "cell-center", type: "number", value: (guest) => Number.parseInt(guest.companions, 10) || 0 },
+  { key: "childSeats", label: "兒童椅", align: "cell-center", type: "number", value: (guest) => Number.parseInt(guest.childSeats, 10) || 0 },
+  { key: "vegetarianCount", label: "素食", align: "cell-center", type: "number", value: (guest) => Number.parseInt(guest.vegetarianCount, 10) || 0 },
+  { key: "table", label: "桌號 / 別名", align: "cell-left", type: "text", value: (guest) => tableSortValue(guest.tableId) },
+  { key: "note", label: "備註", align: "cell-left", type: "text", value: (guest) => guest.note || "" },
+];
+const GUEST_SORT_COLUMN_MAP = Object.fromEntries(GUEST_SORT_COLUMNS.map((column) => [column.key, column]));
+
 const seedState = {
   canvas: {
     zoom: 1,
@@ -142,6 +156,7 @@ const seedState = {
 
 let state = normalizeState(loadState());
 let currentView = "seating";
+let guestSort = { key: "rsvp", direction: "asc" };
 let pendingConfirmation = null;
 let movingLayoutItem = null;
 let suppressTableClickId = null;
@@ -696,21 +711,12 @@ function renderGuestTable() {
       return true;
     })
     .filter((guest) => !query || guestHaystack(guest).includes(query))
-    .sort((a, b) => rsvpSort(a) - rsvpSort(b) || tableLabel(a.tableId).localeCompare(tableLabel(b.tableId), "zh-Hant") || a.name.localeCompare(b.name, "zh-Hant"));
+    .sort(compareGuestRows);
 
   els.guestTable.innerHTML = `
     <div class="table-scroll" role="region" aria-label="賓客名單表格">
       <div class="table-row guest-table header">
-        <span class="cell-left">姓名</span>
-        <span class="cell-center">回覆狀態</span>
-        <span class="cell-center">座位狀態</span>
-        <span class="cell-center">關係</span>
-        <span class="cell-center">喜帖</span>
-        <span class="cell-center">同行人數</span>
-        <span class="cell-center">兒童椅</span>
-        <span class="cell-center">素食</span>
-        <span class="cell-left">桌號 / 別名</span>
-        <span class="cell-left">備註</span>
+        ${GUEST_SORT_COLUMNS.map(guestTableHeaderCell).join("")}
         <span class="cell-actions">操作</span>
       </div>
       ${rows.length ? rows.map((guest) => {
@@ -757,8 +763,64 @@ function renderGuestTable() {
       <span>${rows.length ? `共 ${rows.length} 筆賓客` : "共 0 筆"}</span>
     </div>
   `;
+  bindGuestSortHeaders(els.guestTable);
   bindGuestInlineEdits(els.guestTable);
   bindGuestActions(els.guestTable);
+}
+
+function guestTableHeaderCell(column) {
+  const active = guestSort.key === column.key;
+  const nextDirection = active && guestSort.direction === "asc" ? "降冪" : "升冪";
+  const ariaSort = active ? (guestSort.direction === "asc" ? "ascending" : "descending") : "none";
+  const indicator = active ? (guestSort.direction === "asc" ? "&uarr;" : "&darr;") : "";
+  return `
+    <span class="${column.align}" aria-sort="${ariaSort}">
+      <button class="table-sort-button ${active ? "active" : ""}" data-guest-sort="${column.key}" type="button" aria-label="依${column.label}${nextDirection}排序">
+        <span>${column.label}</span>
+        <span class="sort-indicator" aria-hidden="true">${indicator}</span>
+      </button>
+    </span>
+  `;
+}
+
+function bindGuestSortHeaders(root) {
+  root.querySelectorAll("[data-guest-sort]").forEach((button) => {
+    button.addEventListener("click", () => updateGuestSort(button.dataset.guestSort));
+  });
+}
+
+function updateGuestSort(key) {
+  if (!GUEST_SORT_COLUMN_MAP[key]) return;
+  const direction = guestSort.key === key && guestSort.direction === "asc" ? "desc" : "asc";
+  guestSort = { key, direction };
+  renderGuestTable();
+}
+
+function compareGuestRows(a, b) {
+  const column = GUEST_SORT_COLUMN_MAP[guestSort.key] || GUEST_SORT_COLUMN_MAP.rsvp;
+  const direction = guestSort.direction === "desc" ? -1 : 1;
+  const primary = compareGuestSortValues(column.value(a), column.value(b), column.type);
+  return primary * direction || defaultGuestCompare(a, b);
+}
+
+function compareGuestSortValues(a, b, type) {
+  if (type === "number") return Number(a) - Number(b);
+  return String(a || "").localeCompare(String(b || ""), "zh-Hant", { numeric: true });
+}
+
+function defaultGuestCompare(a, b) {
+  return rsvpSort(a) - rsvpSort(b) ||
+    tableSortValue(a.tableId).localeCompare(tableSortValue(b.tableId), "zh-Hant", { numeric: true }) ||
+    a.name.localeCompare(b.name, "zh-Hant");
+}
+
+function guestAssignmentSort(guest) {
+  if (guest.rsvp === "declined") return 2;
+  return guest.tableId ? 1 : 0;
+}
+
+function invitationSortRank(type) {
+  return { paper: 0, digital: 1, none: 2 }[normalizeInvitationType(type)] ?? 3;
 }
 
 function updateGuestFilterButton() {
@@ -1114,7 +1176,6 @@ function closeTableGuestsDialog() {
 }
 
 function tableGuestDetailRow(guest) {
-  const companions = Number.parseInt(guest.companions, 10) || 0;
   const vegetarianCount = Number.parseInt(guest.vegetarianCount, 10) || 0;
   const childSeats = Number.parseInt(guest.childSeats, 10) || 0;
   const relationClass = guest.relation === "女方親友" ? "bride" : "groom";
@@ -1122,7 +1183,6 @@ function tableGuestDetailRow(guest) {
   const chips = [
     `<span class="table-guest-pill relation ${relationClass}">${escapeHTML(relationShort)}</span>`,
     `<span class="table-guest-pill people">${partySize(guest)} 位</span>`,
-    companions ? `<span class="table-guest-pill muted-pill">同行 ${companions}</span>` : "",
     vegetarianCount ? `<span class="table-guest-pill vegetarian">素 ${vegetarianCount}</span>` : "",
     childSeats ? `<span class="table-guest-pill child">兒 ${childSeats}</span>` : "",
     guest.rsvp === "pending" ? `<span class="table-guest-pill pending">未回覆</span>` : "",
@@ -1995,7 +2055,7 @@ function downloadTemplate() {
   const rows = [
     ["姓名", "回覆狀態", "同行人數", "關係", "兒童座椅數量", "素食人數", "喜帖", "寄送完成", "地址", "Email", "關係標籤", "電話", "桌號", "桌次別名", "備註", "禮金金額", "禮金方式", "禮金備註"],
     ["王建國", "已回覆", "1", "女方親友", "0", "1", "紙本", "未寄送", "台北市信義區松仁路 100 號", "", "親友", "0912-345-678", "1", "女方親友", "素食 1 位", "", "", ""],
-    ["李淑芬", "未回覆", "0", "女方親友", "1", "0", "電子", "已寄送", "", "shufen@example.com", "朋友", "0912-111-222", "", "", "需要兒童椅", "", "", ""],
+    ["李淑芬", "未回覆", "1", "女方親友", "1", "0", "電子", "已寄送", "", "shufen@example.com", "朋友", "0912-111-222", "", "", "本人加一位兒童，需兒童椅 1", "", "", ""],
     ["陳怡君", "已回覆", "0", "男方親友", "0", "0", "無", "未寄送", "", "", "同事", "0912-333-444", "2", "男方同事", "", "3600", "轉帳", "第 2 桌"],
   ];
   downloadText(`wedding-guest-template-${todayISO()}.csv`, "\uFEFF" + rows.map(csvLine).join("\n"), "text/csv;charset=utf-8");
@@ -2996,7 +3056,7 @@ function tableGuests(tableId) {
 }
 
 function partySize(guest) {
-  return 1 + (Number.parseInt(guest.companions, 10) || 0) + (Number.parseInt(guest.childSeats, 10) || 0);
+  return 1 + Math.max(0, Number.parseInt(guest.companions, 10) || 0);
 }
 
 function tableSpecialCounts(tableId) {

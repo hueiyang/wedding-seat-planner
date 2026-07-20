@@ -1414,6 +1414,46 @@ button > span {
   min-height: 24px;
 }
 
+.table-sort-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  min-width: 0;
+  min-height: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: inherit;
+  text-align: inherit;
+  cursor: pointer;
+}
+
+.table-sort-button:hover,
+.table-sort-button.active {
+  color: var(--sage-deep);
+}
+
+.cell-center .table-sort-button {
+  justify-content: center;
+}
+
+.cell-left .table-sort-button {
+  justify-content: flex-start;
+}
+
+.sort-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  color: var(--sage);
+  font-size: 11px;
+  line-height: 1;
+}
+
 .table-row strong,
 .table-row span {
   min-width: 0;
