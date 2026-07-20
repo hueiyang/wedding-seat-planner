@@ -2694,7 +2694,15 @@ button > span {
     padding: 6px;
   }
 
+  #invitationsView .table-scroll {
+    padding: 6px;
+  }
+
   #guestsView .table-scroll > .table-row.guest-table:not(.header) + .table-row.guest-table:not(.header) {
+    margin-top: 6px;
+  }
+
+  #invitationsView .table-scroll > .table-row.invitation-table:not(.header) + .table-row.invitation-table:not(.header) {
     margin-top: 6px;
   }
 
@@ -2706,7 +2714,19 @@ button > span {
     box-shadow: none;
   }
 
+  #invitationTable .table-row.invitation-table:not(.header) {
+    display: flex;
+    min-height: 0;
+    padding: 0;
+    border-radius: var(--radius);
+    box-shadow: none;
+  }
+
   #guestTable .table-row.guest-table:not(.header) > :not(.mobile-guest-card) {
+    display: none !important;
+  }
+
+  #invitationTable .table-row.invitation-table:not(.header) > :not(.mobile-invitation-card) {
     display: none !important;
   }
 
@@ -2729,6 +2749,12 @@ button > span {
 
   .mobile-guest-card:active {
     background: var(--surface-2);
+  }
+
+  .mobile-invitation-card {
+    grid-template-areas:
+      "main status"
+      "badges table";
   }
 
   .mobile-guest-main {
@@ -2765,6 +2791,10 @@ button > span {
     line-height: 1.1;
   }
 
+  .mobile-invitation-contact.missing {
+    color: #8b302c;
+  }
+
   .mobile-guest-count {
     display: inline-flex;
     grid-area: count;
@@ -2778,6 +2808,14 @@ button > span {
     font-size: 12px;
     font-weight: 950;
     white-space: nowrap;
+  }
+
+  .mobile-invitation-status {
+    grid-area: status;
+    justify-self: end;
+    min-height: 24px;
+    padding: 0 8px;
+    font-size: 11px;
   }
 
   .mobile-guest-badges {
@@ -2844,6 +2882,21 @@ button > span {
   .mobile-guest-badge.invitation.paper {
     color: #7a5414;
     background: #fff4d8;
+  }
+
+  .mobile-guest-badge.invitation.none {
+    color: #687274;
+    background: #f3f5f4;
+  }
+
+  .mobile-guest-badge.delivery.sent {
+    color: var(--sage-deep);
+    background: #e1f3e7;
+  }
+
+  .mobile-guest-badge.delivery.unsent {
+    color: #8b481c;
+    background: #fff2e2;
   }
 
   .mobile-guest-badge.vegetarian {

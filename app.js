@@ -943,6 +943,7 @@ function renderInvitationTable() {
   `;
   bindInvitationSortHeaders(els.invitationTable);
   bindGuestInlineEdits(els.invitationTable);
+  bindGuestActions(els.invitationTable);
 }
 
 function invitationTableHeaderCell(column) {
@@ -980,6 +981,7 @@ function invitationRowHTML(guest) {
       </select>`;
   return `
     <div class="table-row invitation-table" data-invitation-row="${guest.id}">
+      ${mobileInvitationSummaryButton(guest, status)}
       <div data-label="姓名">
         <strong>${escapeHTML(guest.name)}</strong>
         <div class="muted">${escapeHTML(tableLabel(guest.tableId))}</div>
@@ -998,6 +1000,39 @@ function invitationRowHTML(guest) {
       <span data-label="備註"><input class="inline-field inline-note" data-guest-field="note" data-guest-id="${guest.id}" type="text" value="${escapeHTML(guest.note || "")}" placeholder="備註" aria-label="編輯${escapeHTML(guest.name)}的備註" /></span>
     </div>
   `;
+}
+
+function mobileInvitationSummaryButton(guest, status) {
+  const type = normalizeInvitationType(guest.invitationType);
+  const typeMeta = invitationMeta[type] || invitationMeta.none;
+  const delivery = normalizeInvitationDelivery(guest.invitationDelivery);
+  const deliveryMeta = invitationDeliveryMeta[delivery] || invitationDeliveryMeta.unsent;
+  const relation = guest.relation || RELATION_OPTIONS[0];
+  const contact = invitationContactText(guest, type);
+  const tableText = tableLabel(guest.tableId);
+  const badges = [
+    mobileGuestBadge(typeMeta.label, `invitation ${typeMeta.className}`),
+    type !== "none" ? mobileGuestBadge(deliveryMeta.label, `delivery ${deliveryMeta.className}`) : "",
+    mobileGuestBadge(relation.replace("親友", ""), relation === "女方親友" ? "relation bride" : "relation groom"),
+  ].filter(Boolean).join("");
+
+  return `
+    <button class="mobile-guest-card mobile-invitation-card" data-edit-guest="${guest.id}" type="button" aria-label="編輯${escapeHTML(guest.name)}的喜帖資料">
+      <span class="mobile-guest-main">
+        <strong>${escapeHTML(guest.name)}</strong>
+        <span class="mobile-invitation-contact ${status.key === "missing" ? "missing" : ""}" title="${escapeHTML(contact)}">${escapeHTML(contact)}</span>
+      </span>
+      <span class="mobile-invitation-status invitation-status-badge ${status.className}" title="${escapeHTML(status.hint)}">${status.label}</span>
+      <span class="mobile-guest-badges">${badges}</span>
+      <span class="mobile-guest-table" title="${escapeHTML(tableText)}">${escapeHTML(tableText)}</span>
+    </button>
+  `;
+}
+
+function invitationContactText(guest, type = normalizeInvitationType(guest.invitationType)) {
+  if (type === "paper") return String(guest.address || "").trim() || "缺地址";
+  if (type === "digital") return String(guest.email || "").trim() || "缺 Email";
+  return String(guest.phone || "").trim() || "不需寄送";
 }
 
 function invitationTypeMatchesFilter(guest, filter) {
