@@ -379,6 +379,7 @@ function bindEvents() {
   els.closeSettingsDialogButton.addEventListener("click", closeSettingsDialog);
   els.cancelSettingsButton.addEventListener("click", closeSettingsDialog);
   els.closeCloudSyncDialogButton.addEventListener("click", closeCloudSyncDialog);
+  bindDialogBackdropClose();
   els.cloudSyncForm.addEventListener("submit", saveCloudSyncSettings);
   els.clearCloudSyncButton.addEventListener("click", confirmClearCloudSyncSettings);
   els.pullCloudButton.addEventListener("click", () => pullCloudState({ confirmBeforeApply: true }));
@@ -417,6 +418,23 @@ function bindEvents() {
     event.preventDefault();
     const guestId = event.dataTransfer.getData("text/guest-id");
     if (guestId) assignGuestToTable(guestId, null);
+  });
+}
+
+function bindDialogBackdropClose() {
+  closeDialogOnBackdrop(els.guestDialog, closeGuestDialog);
+  closeDialogOnBackdrop(els.tableDialog, closeTableDialog);
+  closeDialogOnBackdrop(els.tableGuestsDialog, closeTableGuestsDialog);
+  closeDialogOnBackdrop(els.giftDialog, closeGiftDialog);
+  closeDialogOnBackdrop(els.confirmDialog, closeConfirmDialog);
+  closeDialogOnBackdrop(els.snapshotDialog, closeSnapshotDialog);
+  closeDialogOnBackdrop(els.settingsDialog, closeSettingsDialog);
+  closeDialogOnBackdrop(els.cloudSyncDialog, closeCloudSyncDialog);
+}
+
+function closeDialogOnBackdrop(dialog, closeDialog) {
+  dialog.addEventListener("click", (event) => {
+    if (event.target === dialog) closeDialog();
   });
 }
 
