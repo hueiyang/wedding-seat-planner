@@ -1526,14 +1526,16 @@ function guestRow(guest, options = {}) {
 function guestNeedStrip(guest, table) {
   const vegetarianCount = Number.parseInt(guest.vegetarianCount, 10) || 0;
   const childSeats = Number.parseInt(guest.childSeats, 10) || 0;
-  const mealLabel = vegetarianCount ? `素${vegetarianCount}` : "葷";
+  const needLabels = [`${partySize(guest)}位`];
+  if (vegetarianCount) needLabels.push(`素食${vegetarianCount}`);
+  if (childSeats) needLabels.push(`兒童椅${childSeats}`);
   const relationClass = guest.relation === "女方親友" ? "bride" : "groom";
   const relationShort = guest.relation.replace("親友", "");
   const meta = [guest.group || "", table && table !== "待安排" ? table : ""].filter(Boolean).join(" · ");
   return `
-    <div class="guest-need-strip" aria-label="${escapeHTML(`${partySize(guest)}位，${mealLabel}${childSeats ? `，兒童椅${childSeats}` : ""}`)}">
+    <div class="guest-need-strip" aria-label="${escapeHTML(needLabels.join("，"))}">
       <span class="guest-need-pill people">${partySize(guest)}位</span>
-      <span class="guest-need-pill meal ${vegetarianCount ? "vegetarian" : "regular"}">${escapeHTML(mealLabel)}</span>
+      ${vegetarianCount ? `<span class="guest-need-pill meal vegetarian">素${vegetarianCount}</span>` : ""}
       ${childSeats ? `<span class="guest-need-pill child">兒${childSeats}</span>` : ""}
       <span class="guest-need-pill relation ${relationClass}">${escapeHTML(relationShort)}</span>
       ${meta ? `<span class="guest-need-meta">${escapeHTML(meta)}</span>` : ""}
