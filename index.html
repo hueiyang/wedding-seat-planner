@@ -9,7 +9,7 @@
     <title>囍座位規劃</title>
     <link rel="manifest" href="./manifest.json" />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=wedding-planner-51" />
+    <link rel="stylesheet" href="./styles.css?v=wedding-planner-52" />
   </head>
   <body>
     <div class="app-shell">
@@ -22,10 +22,16 @@
           </div>
         </div>
 
-        <button class="mobile-nav-button" id="mobileNavButton" type="button" aria-controls="navList" aria-expanded="false">
-          <span id="mobileNavLabel">座位圖</span>
-          <span data-icon="menu"></span>
-        </button>
+        <div class="mobile-header-actions">
+          <button class="mobile-tools-button" id="mobileToolsButton" type="button" aria-controls="topbarActions" aria-expanded="false">
+            <span data-icon="settings"></span>
+            <span>工具</span>
+          </button>
+          <button class="mobile-nav-button" id="mobileNavButton" type="button" aria-controls="navList" aria-expanded="false">
+            <span id="mobileNavLabel">座位圖</span>
+            <span data-icon="menu"></span>
+          </button>
+        </div>
 
         <nav class="nav-list" id="navList">
           <button class="nav-item active" data-view="seating" type="button">
@@ -76,10 +82,6 @@
           <div class="topbar-title">
             <p class="date-label" id="todayLabel"></p>
             <h2 id="viewTitle">座位圖</h2>
-            <button class="mobile-tools-button" id="mobileToolsButton" type="button" aria-controls="topbarActions" aria-expanded="false">
-              <span data-icon="settings"></span>
-              <span>工具</span>
-            </button>
           </div>
           <div class="topbar-actions" id="topbarActions">
             <input id="importFile" type="file" accept=".csv,text/csv" hidden />
@@ -698,6 +700,6 @@
     <div class="canvas-tooltip" id="canvasTooltip" role="tooltip" hidden></div>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-    <script src="./app.js?v=wedding-planner-51"></script>
+    <script src="./app.js?v=wedding-planner-52"></script>
   </body>
 </html>

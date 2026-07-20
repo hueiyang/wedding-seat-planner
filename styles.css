@@ -156,6 +156,10 @@ button:disabled {
   display: none;
 }
 
+.mobile-header-actions {
+  display: none;
+}
+
 .nav-item,
 .primary-action,
 .secondary-action,
@@ -2488,13 +2492,21 @@ button > span {
     display: none;
   }
 
-  .mobile-nav-button {
+  .mobile-header-actions {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .mobile-nav-button,
+  .mobile-tools-button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 7px;
     min-height: 38px;
-    max-width: 154px;
     padding: 0 10px;
     border: 1px solid rgba(255, 255, 255, 0.18);
     border-radius: var(--radius);
@@ -2505,17 +2517,28 @@ button > span {
     white-space: nowrap;
   }
 
+  .mobile-tools-button {
+    flex: 0 0 auto;
+  }
+
+  .mobile-nav-button {
+    min-width: 0;
+    max-width: 142px;
+  }
+
   .mobile-nav-button span:first-child {
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
-  .mobile-nav-button svg {
+  .mobile-nav-button svg,
+  .mobile-tools-button svg {
     width: 17px;
     height: 17px;
   }
 
-  .mobile-nav-button[aria-expanded="true"] {
+  .mobile-nav-button[aria-expanded="true"],
+  .mobile-tools-button[aria-expanded="true"] {
     background: rgba(255, 255, 255, 0.17);
   }
 
@@ -2571,8 +2594,7 @@ button > span {
   }
 
   .topbar-title {
-    display: flex;
-    justify-content: flex-end;
+    display: none;
   }
 
   .date-label {
@@ -2581,21 +2603,6 @@ button > span {
 
   .topbar h2 {
     display: none;
-  }
-
-  .mobile-tools-button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    min-height: 36px;
-    padding: 0 11px;
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-    color: var(--ink);
-    background: var(--surface);
-    font-size: 13px;
-    font-weight: 900;
   }
 
   .topbar-actions {
