@@ -9,7 +9,7 @@
     <title>囍座位規劃</title>
     <link rel="manifest" href="./manifest.json" />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=wedding-planner-53" />
+    <link rel="stylesheet" href="./styles.css?v=wedding-planner-54" />
   </head>
   <body>
     <div class="app-shell">
@@ -194,6 +194,10 @@
                 <label class="switch-row">
                   <span>顯示姓名</span>
                   <input id="showNamesToggle" type="checkbox" checked />
+                </label>
+                <label class="switch-row">
+                  <span>顯示群組</span>
+                  <input id="showSeatGroupsToggle" type="checkbox" />
                 </label>
                 <div class="legend">
                   <span><i class="dot confirmed"></i>已回覆</span>
@@ -408,6 +412,10 @@
           <label>
             關係標籤
             <input name="group" type="text" placeholder="同事、親友、朋友" />
+          </label>
+          <label>
+            座位群組
+            <input name="seatGroup" type="text" placeholder="1、2、A" />
           </label>
           <label>
             電話
@@ -700,6 +708,6 @@
     <div class="canvas-tooltip" id="canvasTooltip" role="tooltip" hidden></div>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-    <script src="./app.js?v=wedding-planner-53"></script>
+    <script src="./app.js?v=wedding-planner-54"></script>
   </body>
 </html>

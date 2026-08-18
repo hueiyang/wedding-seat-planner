@@ -87,6 +87,7 @@ const GUEST_SORT_COLUMNS = [
   { key: "name", label: "姓名", align: "cell-left", type: "text", value: (guest) => guest.name || "" },
   { key: "rsvp", label: "回覆狀態", align: "cell-center", type: "number", value: (guest) => rsvpSort(guest) },
   { key: "assignment", label: "座位狀態", align: "cell-center", type: "number", value: (guest) => guestAssignmentSort(guest) },
+  { key: "seatGroup", label: "座位群組", align: "cell-center", type: "text", value: (guest) => guest.seatGroup || "" },
   { key: "relation", label: "關係", align: "cell-center", type: "text", value: (guest) => guest.relation || "" },
   { key: "invitation", label: "喜帖", align: "cell-center", type: "number", value: (guest) => invitationSortRank(guest.invitationType) },
   { key: "companions", label: "同行人數", align: "cell-center", type: "number", value: (guest) => Number.parseInt(guest.companions, 10) || 0 },
@@ -122,6 +123,7 @@ const seedState = {
     zoom: 1,
     coordinateMode: "px",
     layoutLocked: false,
+    showSeatGroups: false,
   },
   meta: {
     updatedAt: "",
@@ -232,6 +234,7 @@ const els = {
   alignTablesButton: document.querySelector("#alignTablesButton"),
   resetLayoutButton: document.querySelector("#resetLayoutButton"),
   showNamesToggle: document.querySelector("#showNamesToggle"),
+  showSeatGroupsToggle: document.querySelector("#showSeatGroupsToggle"),
   layoutSavedLabel: document.querySelector("#layoutSavedLabel"),
   unassignedDropZone: document.querySelector("#unassignedDropZone"),
   unassignedSearchInput: document.querySelector("#unassignedSearchInput"),
@@ -403,6 +406,7 @@ function bindEvents() {
   els.alignTablesButton.addEventListener("click", alignTablesHorizontally);
   els.resetLayoutButton.addEventListener("click", confirmResetTableLayout);
   els.showNamesToggle.addEventListener("change", renderSeating);
+  els.showSeatGroupsToggle.addEventListener("change", () => setSeatGroupVisibility(els.showSeatGroupsToggle.checked));
   els.focusUnassignedButton.addEventListener("click", () => setView("guests", { assignment: "unassigned" }));
   els.unassignedSearchInput.addEventListener("input", renderUnassigned);
   els.guestFilterButton.addEventListener("click", toggleGuestFilters);
@@ -641,6 +645,7 @@ function renderMetrics() {
 function renderSeating() {
   const filter = els.tableVisibilityFilter.value;
   const showNames = els.showNamesToggle.checked;
+  const showSeatGroups = Boolean(state.canvas.showSeatGroups);
   const zoom = normalizeCanvasZoom(state.canvas.zoom);
   const size = canvasSize();
   const tables = state.tables.map((table) => {
@@ -652,13 +657,14 @@ function renderSeating() {
   });
 
   syncZoomControls();
+  syncCanvasDisplayControls();
   syncLayoutSafetyControls();
   els.seatingCanvas.classList.toggle("layout-locked", Boolean(state.canvas.layoutLocked));
   els.seatingCanvas.innerHTML = `
     <div class="canvas-surface" style="width:${Math.round(size.width * zoom)}px;height:${Math.round(size.height * zoom)}px">
       <div class="canvas-content" style="width:${size.width}px;height:${size.height}px;transform:scale(${zoom})">
         ${state.venueItems.map(renderVenueItem).join("")}
-        ${tables.map((table) => renderSeatTable(table, showNames)).join("")}
+        ${tables.map((table) => renderSeatTable(table, showNames, showSeatGroups)).join("")}
       </div>
     </div>
   `;
@@ -712,7 +718,7 @@ function renderVenueItem(item) {
   `;
 }
 
-function renderSeatTable(table, showNames) {
+function renderSeatTable(table, showNames, showSeatGroups) {
   const assigned = tableGuests(table.id);
   const hasHiddenGuests = assigned.length > TABLE_GUEST_PREVIEW_LIMIT;
   const visibleLimit = hasHiddenGuests ? TABLE_GUEST_PREVIEW_LIMIT - 1 : TABLE_GUEST_PREVIEW_LIMIT;
@@ -745,7 +751,7 @@ function renderSeatTable(table, showNames) {
         </span>
       </button>
       <div class="table-guests">
-        ${visibleGuests.map((guest, index) => guestChip(guest, showNames, { ring: true, tableId: table.id, seatIndex: index, position: tableRingSlot(index, ringItemCount) })).join("")}
+        ${visibleGuests.map((guest, index) => guestChip(guest, showNames, { showSeatGroups, ring: true, tableId: table.id, seatIndex: index, position: tableRingSlot(index, ringItemCount) })).join("")}
         ${hiddenGuests.length ? `
           <button class="table-overflow-chip" data-view-table-guests="${table.id}" type="button" style="${tableRingStyle(tableRingSlot(ringItemCount - 1, ringItemCount))}" title="查看${escapeHTML(tableDisplayName(table))}完整賓客">
             +${hiddenGuests.length}組 / +${hiddenPeople}位
@@ -789,7 +795,7 @@ function renderUnassigned() {
   const people = guests.reduce((sum, guest) => sum + partySize(guest), 0);
   els.unassignedCount.textContent = `${people} 位`;
   els.unassignedList.innerHTML = guests.length
-    ? guests.map((guest) => guestRow(guest, { draggable: true })).join("")
+    ? guests.map((guest) => guestRow(guest, { draggable: true, showSeatGroups: state.canvas.showSeatGroups })).join("")
     : empty("目前沒有待安排賓客。");
   bindGuestActions(els.unassignedList);
 }
@@ -834,6 +840,7 @@ function renderGuestTable() {
               </select>
             </span>
             <span class="cell-center" data-label="座位"><span class="status-badge ${assignmentStatus.className}">${assignmentStatus.label}</span></span>
+            <span class="cell-center" data-label="群組"><input class="inline-field inline-seat-group" data-guest-field="seatGroup" data-guest-id="${guest.id}" type="text" value="${escapeHTML(guest.seatGroup || "")}" maxlength="12" placeholder="1" aria-label="編輯${escapeHTML(guest.name)}的座位群組" /></span>
             <span class="cell-center" data-label="關係">
               <select class="inline-field inline-select relation-select ${guest.relation === "女方親友" ? "bride" : "groom"}" data-guest-field="relation" data-guest-id="${guest.id}" aria-label="編輯${escapeHTML(guest.name)}的關係">
                 ${relationOptions(guest.relation)}
@@ -973,6 +980,7 @@ function mobileGuestSummaryButton(guest, assignmentStatus) {
   const badges = [
     mobileGuestBadge(rsvpMeta[guest.rsvp].label, `rsvp ${rsvpMeta[guest.rsvp].className}`),
     mobileGuestBadge(assignmentStatus.label, `assignment ${assignmentStatus.className}`),
+    guest.seatGroup ? mobileGuestBadge(`組${guest.seatGroup}`, "seat-group") : "",
     mobileGuestBadge(guest.relation.replace("親友", ""), guest.relation === "女方親友" ? "relation bride" : "relation groom"),
     guest.invitationType !== "none" ? mobileGuestBadge(invitation, `invitation ${invitationMeta[guest.invitationType]?.className || "none"}`) : "",
     guest.vegetarianCount ? mobileGuestBadge(`素${guest.vegetarianCount}`, "special vegetarian") : "",
@@ -1183,7 +1191,7 @@ function normalizeGuestInlineValue(field, value) {
   if (["companions", "childSeats", "vegetarianCount"].includes(field)) {
     return Math.max(0, Number.parseInt(value, 10) || 0);
   }
-  if (["note", "address", "email"].includes(field)) return String(value || "").trim();
+  if (["note", "address", "email", "seatGroup"].includes(field)) return cleanText(value);
   return value;
 }
 
@@ -1384,9 +1392,11 @@ function closeTableGuestsDialog() {
 function tableGuestDetailRow(guest) {
   const vegetarianCount = Number.parseInt(guest.vegetarianCount, 10) || 0;
   const childSeats = Number.parseInt(guest.childSeats, 10) || 0;
+  const seatGroup = normalizeSeatGroup(guest.seatGroup);
   const relationClass = guest.relation === "女方親友" ? "bride" : "groom";
   const relationShort = guest.relation.replace("親友", "");
   const chips = [
+    seatGroup ? `<span class="table-guest-pill seat-group">組${escapeHTML(seatGroup)}</span>` : "",
     vegetarianCount ? `<span class="table-guest-pill meal vegetarian">素${vegetarianCount}</span>` : "",
     childSeats ? `<span class="table-guest-pill child">兒${childSeats}</span>` : "",
     guest.rsvp === "pending" ? `<span class="table-guest-pill pending">未回覆</span>` : "",
@@ -1516,8 +1526,8 @@ function guestChip(guest, showNames, options = {}) {
   const vegetarianCount = Number.parseInt(guest.vegetarianCount, 10) || 0;
   const childSeats = Number.parseInt(guest.childSeats, 10) || 0;
   const specialClass = vegetarianCount && childSeats ? "has-special-mixed" : vegetarianCount ? "has-vegetarian" : childSeats ? "has-child-seat" : "";
-  const displayName = showNames ? guest.name : "賓客";
-  const tooltipAttribute = showNames ? ` data-full-name="${escapeHTML(guest.name)}"` : "";
+  const displayName = guestCanvasDisplayName(guest, showNames, options.showSeatGroups);
+  const tooltipAttribute = showNames ? ` data-full-name="${escapeHTML(guestCanvasTooltip(guest, options.showSeatGroups))}"` : "";
   const ringClass = options.ring ? " ring-chip" : "";
   const styleAttribute = options.position ? ` style="${escapeHTML(tableRingStyle(options.position))}"` : "";
   const tableAttribute = options.tableId ? ` data-table-id="${escapeHTML(options.tableId)}"` : "";
@@ -1535,13 +1545,24 @@ function guestChip(guest, showNames, options = {}) {
   `;
 }
 
+function guestCanvasDisplayName(guest, showNames, showSeatGroups) {
+  const baseName = showNames ? guest.name : "賓客";
+  const seatGroup = normalizeSeatGroup(guest.seatGroup);
+  return showSeatGroups && seatGroup ? `${seatGroup}｜${baseName}` : baseName;
+}
+
+function guestCanvasTooltip(guest, showSeatGroups) {
+  const seatGroup = normalizeSeatGroup(guest.seatGroup);
+  return showSeatGroups && seatGroup ? `座位群組 ${seatGroup} · ${guest.name}` : guest.name;
+}
+
 function guestRow(guest, options = {}) {
   const table = tableLabel(guest.tableId);
   return `
     <article class="guest-row" ${options.draggable ? 'draggable="true"' : ""} data-guest-id="${guest.id}">
       <div class="guest-row-main">
         <strong>${escapeHTML(guest.name)}</strong>
-        ${guestNeedStrip(guest, table)}
+        ${guestNeedStrip(guest, table, options)}
       </div>
       <div class="row-actions">
         <span class="status-badge ${rsvpMeta[guest.rsvp].className}">${rsvpMeta[guest.rsvp].label}</span>
@@ -1551,10 +1572,12 @@ function guestRow(guest, options = {}) {
   `;
 }
 
-function guestNeedStrip(guest, table) {
+function guestNeedStrip(guest, table, options = {}) {
   const vegetarianCount = Number.parseInt(guest.vegetarianCount, 10) || 0;
   const childSeats = Number.parseInt(guest.childSeats, 10) || 0;
+  const seatGroup = normalizeSeatGroup(guest.seatGroup);
   const needLabels = [`${partySize(guest)}位`];
+  if (options.showSeatGroups && seatGroup) needLabels.push(`座位群組${seatGroup}`);
   if (vegetarianCount) needLabels.push(`素食${vegetarianCount}`);
   if (childSeats) needLabels.push(`兒童椅${childSeats}`);
   const relationClass = guest.relation === "女方親友" ? "bride" : "groom";
@@ -1562,6 +1585,7 @@ function guestNeedStrip(guest, table) {
   const meta = [guest.group || "", table && table !== "待安排" ? table : ""].filter(Boolean).join(" · ");
   return `
     <div class="guest-need-strip" aria-label="${escapeHTML(needLabels.join("，"))}">
+      ${options.showSeatGroups && seatGroup ? `<span class="guest-need-pill seat-group">組${escapeHTML(seatGroup)}</span>` : ""}
       <span class="guest-need-pill people">${partySize(guest)}位</span>
       ${vegetarianCount ? `<span class="guest-need-pill meal vegetarian">素${vegetarianCount}</span>` : ""}
       ${childSeats ? `<span class="guest-need-pill child">兒${childSeats}</span>` : ""}
@@ -2023,6 +2047,7 @@ function openGuestDialog(guest = {}, options = {}) {
     address: "",
     email: "",
     group: "",
+    seatGroup: "",
     phone: "",
     tableId: "",
     note: "",
@@ -2054,6 +2079,7 @@ function saveGuestFromForm(event) {
     address: formData.address.trim(),
     email: formData.email.trim(),
     group: formData.group.trim(),
+    seatGroup: normalizeSeatGroup(formData.seatGroup),
     phone: formData.phone.trim(),
     tableId: formData.tableId || null,
     note: formData.note.trim(),
@@ -2418,6 +2444,14 @@ function importGuestsFromCSV(text) {
       address: cell(row, index("地址")).trim(),
       email: cell(row, index("Email")).trim() || cell(row, index("email")).trim(),
       group: cell(row, index("關係標籤")).trim() || cell(row, index("標籤")).trim(),
+      seatGroup: normalizeSeatGroup(
+        cell(row, index("座位群組")).trim() ||
+        cell(row, index("座位分組")).trim() ||
+        cell(row, index("座位Tag")).trim() ||
+        cell(row, index("分組")).trim() ||
+        cell(row, index("Tag")).trim() ||
+        cell(row, index("tag")).trim()
+      ),
       phone: cell(row, index("電話")).trim(),
       tableId,
       note,
@@ -2454,17 +2488,17 @@ function importGuestsFromCSV(text) {
 
 function downloadTemplate() {
   const rows = [
-    ["姓名", "回覆狀態", "同行人數", "關係", "兒童座椅數量", "素食人數", "喜帖", "寄送完成", "地址", "Email", "關係標籤", "電話", "桌號", "桌次別名", "備註", "禮金金額", "禮金方式", "禮金備註"],
-    ["王建國", "已回覆", "1", "女方親友", "0", "1", "紙本", "未寄送", "台北市信義區松仁路 100 號", "", "親友", "0912-345-678", "1", "女方親友", "素食 1 位", "", "", ""],
-    ["李淑芬", "未回覆", "1", "女方親友", "1", "0", "電子", "已寄送", "", "shufen@example.com", "朋友", "0912-111-222", "", "", "本人加一位兒童，需兒童椅 1", "", "", ""],
-    ["陳怡君", "已回覆", "0", "男方親友", "0", "0", "無", "未寄送", "", "", "同事", "0912-333-444", "2", "男方同事", "", "3600", "轉帳", "第 2 桌"],
+    ["姓名", "回覆狀態", "同行人數", "關係", "兒童座椅數量", "素食人數", "喜帖", "寄送完成", "地址", "Email", "關係標籤", "座位群組", "電話", "桌號", "桌次別名", "備註", "禮金金額", "禮金方式", "禮金備註"],
+    ["王建國", "已回覆", "1", "女方親友", "0", "1", "紙本", "未寄送", "台北市信義區松仁路 100 號", "", "親友", "1", "0912-345-678", "1", "女方親友", "素食 1 位", "", "", ""],
+    ["李淑芬", "未回覆", "1", "女方親友", "1", "0", "電子", "已寄送", "", "shufen@example.com", "朋友", "1", "0912-111-222", "", "", "本人加一位兒童，需兒童椅 1", "", "", ""],
+    ["陳怡君", "已回覆", "0", "男方親友", "0", "0", "無", "未寄送", "", "", "同事", "2", "0912-333-444", "2", "男方同事", "", "3600", "轉帳", "第 2 桌"],
   ];
   downloadText(`wedding-guest-template-${todayISO()}.csv`, "\uFEFF" + rows.map(csvLine).join("\n"), "text/csv;charset=utf-8");
 }
 
 function exportData() {
   const rows = [
-    ["姓名", "回覆狀態", "同行人數", "關係", "兒童座椅數量", "素食人數", "喜帖", "寄送完成", "地址", "Email", "關係標籤", "電話", "桌號", "桌次別名", "桌次顯示", "備註", "禮金金額", "禮金方式", "禮金備註", "總人數"],
+    ["姓名", "回覆狀態", "同行人數", "關係", "兒童座椅數量", "素食人數", "喜帖", "寄送完成", "地址", "Email", "關係標籤", "座位群組", "電話", "桌號", "桌次別名", "桌次顯示", "備註", "禮金金額", "禮金方式", "禮金備註", "總人數"],
     ...state.guests
       .slice()
       .sort((a, b) => tableSortValue(a.tableId).localeCompare(tableSortValue(b.tableId), "zh-Hant", { numeric: true }) || a.name.localeCompare(b.name, "zh-Hant"))
@@ -2483,6 +2517,7 @@ function exportData() {
           guest.address || "",
           guest.email || "",
           guest.group,
+          guest.seatGroup || "",
           guest.phone,
           table?.number || "",
           table?.alias || "",
@@ -3157,6 +3192,7 @@ function normalizeState(value) {
     gifts: Array.isArray(value.gifts) ? value.gifts : structuredClone(seedState.gifts),
   };
   next.canvas.zoom = normalizeCanvasZoom(next.canvas.zoom);
+  next.canvas.showSeatGroups = next.canvas.showSeatGroups === true;
   next.venueItems = seedState.venueItems.map((seedItem) => {
     const item = next.venueItems.find((entry) => entry.id === seedItem.id) || {};
     return {
@@ -3204,6 +3240,7 @@ function normalizeState(value) {
       address: guest.address || "",
       email: guest.email || "",
       group: guest.group || "",
+      seatGroup: normalizeSeatGroup(guest.seatGroup ?? guest.seatTag ?? guest.tableGroup ?? guest.groupTag ?? ""),
       phone: guest.phone || "",
       tableId: next.tables.some((item) => item.id === guest.tableId) ? guest.tableId : null,
       seatOrder: Number.isFinite(Number(guest.seatOrder)) ? Number(guest.seatOrder) : null,
@@ -3343,6 +3380,20 @@ function setLayoutLock(locked) {
   saveState({ createSnapshot: false });
   renderSeating();
   showToast(locked ? "桌位與場地物件已鎖定" : "已解除桌位鎖定");
+}
+
+function setSeatGroupVisibility(visible) {
+  state.canvas.showSeatGroups = Boolean(visible);
+  saveState({ createSnapshot: false });
+  renderSeating();
+  renderUnassigned();
+  showToast(visible ? "Canvas 已顯示座位群組" : "Canvas 已隱藏座位群組");
+}
+
+function syncCanvasDisplayControls() {
+  if (els.showSeatGroupsToggle) {
+    els.showSeatGroupsToggle.checked = Boolean(state.canvas.showSeatGroups);
+  }
 }
 
 function syncLayoutSafetyControls() {
@@ -3790,14 +3841,14 @@ function guestHaystack(guest) {
   const invitationLabel = invitationMeta[guest.invitationType]?.label || "無";
   const deliveryLabel = invitationDeliveryMeta[guest.invitationDelivery]?.label || "未寄送";
   const invitationStatus = invitationStatusFor(guest).label;
-  return `${guest.name} ${guest.phone} ${guest.relation} ${guest.group} ${guest.note} ${tableLabel(guest.tableId)} ${rsvpMeta[guest.rsvp].label} ${guest.childSeats || 0} ${guest.vegetarianCount || 0} ${invitationLabel} ${deliveryLabel} ${invitationStatus} ${guest.address || ""} ${guest.email || ""}`.toLowerCase();
+  return `${guest.name} ${guest.phone} ${guest.relation} ${guest.group} ${guest.seatGroup || ""} ${guest.note} ${tableLabel(guest.tableId)} ${rsvpMeta[guest.rsvp].label} ${guest.childSeats || 0} ${guest.vegetarianCount || 0} ${invitationLabel} ${deliveryLabel} ${invitationStatus} ${guest.address || ""} ${guest.email || ""}`.toLowerCase();
 }
 
 function invitationHaystack(guest) {
   const invitationLabel = invitationMeta[guest.invitationType]?.label || "無";
   const deliveryLabel = invitationDeliveryMeta[guest.invitationDelivery]?.label || "未寄送";
   const invitationStatus = invitationStatusFor(guest).label;
-  return `${guest.name} ${guest.phone} ${guest.relation} ${guest.group} ${guest.note} ${tableLabel(guest.tableId)} ${invitationLabel} ${deliveryLabel} ${invitationStatus} ${guest.address || ""} ${guest.email || ""}`.toLowerCase();
+  return `${guest.name} ${guest.phone} ${guest.relation} ${guest.group} ${guest.seatGroup || ""} ${guest.note} ${tableLabel(guest.tableId)} ${invitationLabel} ${deliveryLabel} ${invitationStatus} ${guest.address || ""} ${guest.email || ""}`.toLowerCase();
 }
 
 function invitationSortValue(guest) {
@@ -3814,6 +3865,10 @@ function allowDrop(event) {
 
 function cell(row, index) {
   return index >= 0 ? String(row[index] ?? "") : "";
+}
+
+function normalizeSeatGroup(value) {
+  return cleanText(value);
 }
 
 function money(value) {

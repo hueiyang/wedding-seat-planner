@@ -1424,6 +1424,11 @@ button > span {
   background: #f4f2ed;
 }
 
+.guest-need-pill.seat-group {
+  color: #51406f;
+  background: #f1ecfa;
+}
+
 .guest-need-pill.meal.regular {
   color: #72532e;
   background: #fff1df;
@@ -1775,8 +1780,8 @@ button > span {
 }
 
 .table-row.guest-table {
-  grid-template-columns: minmax(190px, 1.25fr) 120px 112px 132px 96px 88px 86px 82px minmax(150px, 1fr) minmax(210px, 1.1fr) 96px;
-  min-width: 1482px;
+  grid-template-columns: minmax(190px, 1.25fr) 120px 112px 92px 132px 96px 88px 86px 82px minmax(150px, 1fr) minmax(210px, 1.1fr) 96px;
+  min-width: 1574px;
 }
 
 .table-row.invitation-table {
@@ -1908,6 +1913,12 @@ button > span {
 
 .inline-select {
   padding: 0 8px;
+}
+
+.inline-seat-group {
+  max-width: 76px;
+  padding: 0 8px;
+  text-align: center;
 }
 
 .inline-select.relation-select.groom {
@@ -2169,6 +2180,11 @@ button > span {
 .table-guest-pill.people {
   color: var(--ink);
   background: #fff;
+}
+
+.table-guest-pill.seat-group {
+  color: #51406f;
+  background: #f1ecfa;
 }
 
 .table-guest-pill.meal.regular {
@@ -3128,6 +3144,11 @@ button > span {
   .mobile-guest-badge.delivery.unsent {
     color: #8b481c;
     background: #fff2e2;
+  }
+
+  .mobile-guest-badge.seat-group {
+    color: #51406f;
+    background: #f1ecfa;
   }
 
   .mobile-guest-badge.vegetarian {
