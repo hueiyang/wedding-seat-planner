@@ -795,7 +795,7 @@ function renderUnassigned() {
   const people = guests.reduce((sum, guest) => sum + partySize(guest), 0);
   els.unassignedCount.textContent = `${people} 位`;
   els.unassignedList.innerHTML = guests.length
-    ? guests.map((guest) => guestRow(guest, { draggable: true, showSeatGroups: state.canvas.showSeatGroups })).join("")
+    ? guests.map((guest) => guestRow(guest, { draggable: true, showSeatGroupNamePrefix: true })).join("")
     : empty("目前沒有待安排賓客。");
   bindGuestActions(els.unassignedList);
 }
@@ -1560,10 +1560,15 @@ function guestCanvasTooltip(guest, showSeatGroups) {
 
 function guestRow(guest, options = {}) {
   const table = tableLabel(guest.tableId);
+  const seatGroup = normalizeSeatGroup(guest.seatGroup);
+  const showSeatGroupNamePrefix = Boolean(options.showSeatGroupNamePrefix && seatGroup);
   return `
     <article class="guest-row" ${options.draggable ? 'draggable="true"' : ""} data-guest-id="${guest.id}">
       <div class="guest-row-main">
-        <strong>${escapeHTML(guest.name)}</strong>
+        <strong class="guest-row-title">
+          ${showSeatGroupNamePrefix ? `<span class="guest-row-seat-group">組${escapeHTML(seatGroup)}</span>` : ""}
+          <span class="guest-row-name">${escapeHTML(guest.name)}</span>
+        </strong>
         ${guestNeedStrip(guest, table, options)}
       </div>
       <div class="row-actions">
