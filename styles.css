@@ -1173,6 +1173,22 @@ button > span {
   color: var(--subtle);
 }
 
+.guest-chip-seat-group {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 16px;
+  flex: 0 0 auto;
+  padding: 0 5px;
+  border-radius: 999px;
+  color: #51406f;
+  background: #f1ecfa;
+  font-size: 10px;
+  font-weight: 950;
+  line-height: 1;
+  white-space: nowrap;
+}
+
 .guest-chip .guest-special {
   flex: 0 0 auto;
 }

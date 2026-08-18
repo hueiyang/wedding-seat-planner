@@ -1526,15 +1526,19 @@ function guestChip(guest, showNames, options = {}) {
   const vegetarianCount = Number.parseInt(guest.vegetarianCount, 10) || 0;
   const childSeats = Number.parseInt(guest.childSeats, 10) || 0;
   const specialClass = vegetarianCount && childSeats ? "has-special-mixed" : vegetarianCount ? "has-vegetarian" : childSeats ? "has-child-seat" : "";
-  const displayName = guestCanvasDisplayName(guest, showNames, options.showSeatGroups);
+  const seatGroup = normalizeSeatGroup(guest.seatGroup);
+  const showSeatGroup = Boolean(options.showSeatGroups && seatGroup);
+  const displayName = guestCanvasDisplayName(guest, showNames);
   const tooltipAttribute = showNames ? ` data-full-name="${escapeHTML(guestCanvasTooltip(guest, options.showSeatGroups))}"` : "";
   const ringClass = options.ring ? " ring-chip" : "";
   const styleAttribute = options.position ? ` style="${escapeHTML(tableRingStyle(options.position))}"` : "";
   const tableAttribute = options.tableId ? ` data-table-id="${escapeHTML(options.tableId)}"` : "";
   const seatAttribute = Number.isFinite(options.seatIndex) ? ` data-seat-index="${options.seatIndex}"` : "";
+  const ariaLabel = showSeatGroup ? `編輯${guest.name}，座位群組${seatGroup}` : `編輯${guest.name}`;
   return `
     <div class="guest-chip ${guest.rsvp} ${specialClass}${ringClass}" draggable="true" data-guest-id="${guest.id}"${tableAttribute}${seatAttribute}${styleAttribute}>
-      <button class="guest-chip-main" data-edit-guest="${guest.id}"${tooltipAttribute} type="button" aria-label="編輯${escapeHTML(guest.name)}">
+      <button class="guest-chip-main" data-edit-guest="${guest.id}"${tooltipAttribute} type="button" aria-label="${escapeHTML(ariaLabel)}">
+        ${showSeatGroup ? `<span class="guest-chip-seat-group">組${escapeHTML(seatGroup)}</span>` : ""}
         <span class="guest-chip-name">${escapeHTML(displayName)}</span>
         <span class="party-size">${partySize(guest)}位</span>
         ${vegetarianCount ? `<span class="guest-special vegetarian">素${vegetarianCount}</span>` : ""}
@@ -1545,10 +1549,8 @@ function guestChip(guest, showNames, options = {}) {
   `;
 }
 
-function guestCanvasDisplayName(guest, showNames, showSeatGroups) {
-  const baseName = showNames ? guest.name : "賓客";
-  const seatGroup = normalizeSeatGroup(guest.seatGroup);
-  return showSeatGroups && seatGroup ? `${seatGroup}｜${baseName}` : baseName;
+function guestCanvasDisplayName(guest, showNames) {
+  return showNames ? guest.name : "賓客";
 }
 
 function guestCanvasTooltip(guest, showSeatGroups) {
