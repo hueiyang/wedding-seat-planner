@@ -1530,16 +1530,16 @@ function guestChip(guest, showNames, options = {}) {
   const seatGroup = normalizeSeatGroup(guest.seatGroup);
   const showSeatGroup = Boolean(options.showSeatGroups && seatGroup);
   const displayName = guestCanvasDisplayName(guest, showNames);
-  const tooltipAttribute = showNames ? ` data-full-name="${escapeHTML(guestCanvasTooltip(guest, options.showSeatGroups))}"` : "";
   const ringClass = options.ring ? " ring-chip" : "";
   const styleAttribute = options.position ? ` style="${escapeHTML(tableRingStyle(options.position))}"` : "";
   const tableAttribute = options.tableId ? ` data-table-id="${escapeHTML(options.tableId)}"` : "";
   const seatAttribute = Number.isFinite(options.seatIndex) ? ` data-seat-index="${options.seatIndex}"` : "";
+  const tooltipAttribute = ` data-canvas-tooltip="${escapeHTML(guestCanvasTooltip(guest, options.showSeatGroups))}"`;
   const ariaLabel = showSeatGroup ? `編輯${guest.name}，座位群組${seatGroup}` : `編輯${guest.name}`;
   return `
-    <div class="guest-chip ${guest.rsvp} ${specialClass}${ringClass}" draggable="true" data-guest-id="${guest.id}"${tableAttribute}${seatAttribute}${styleAttribute}>
-      <button class="guest-chip-main" data-edit-guest="${guest.id}"${tooltipAttribute} type="button" aria-label="${escapeHTML(ariaLabel)}">
-        ${showSeatGroup ? `<span class="guest-chip-seat-group" title="座位群組 ${escapeHTML(seatGroup)}">${escapeHTML(seatGroup)}</span>` : ""}
+    <div class="guest-chip ${guest.rsvp} ${specialClass}${ringClass}" draggable="true" data-guest-id="${guest.id}"${tableAttribute}${seatAttribute}${tooltipAttribute}${styleAttribute}>
+      <button class="guest-chip-main" data-edit-guest="${guest.id}" type="button" aria-label="${escapeHTML(ariaLabel)}">
+        ${showSeatGroup ? `<span class="guest-chip-seat-group">${escapeHTML(seatGroup)}</span>` : ""}
         <span class="guest-chip-name">${escapeHTML(displayName)}</span>
         <span class="party-size">${partySize(guest)}位</span>
         ${vegetarianCount ? `<span class="guest-special vegetarian">素${vegetarianCount}</span>` : ""}
@@ -1556,7 +1556,16 @@ function guestCanvasDisplayName(guest, showNames) {
 
 function guestCanvasTooltip(guest, showSeatGroups) {
   const seatGroup = normalizeSeatGroup(guest.seatGroup);
-  return showSeatGroups && seatGroup ? `座位群組 ${seatGroup} · ${guest.name}` : guest.name;
+  const vegetarianCount = Number.parseInt(guest.vegetarianCount, 10) || 0;
+  const childSeats = Number.parseInt(guest.childSeats, 10) || 0;
+  const parts = [
+    showSeatGroups && seatGroup ? `座位群組 ${seatGroup}` : "",
+    guest.name,
+    `${partySize(guest)}位`,
+    vegetarianCount ? `素${vegetarianCount}` : "",
+    childSeats ? `兒${childSeats}` : "",
+  ].filter(Boolean);
+  return parts.join(" · ");
 }
 
 function guestRow(guest, options = {}) {
@@ -1605,11 +1614,9 @@ function guestNeedStrip(guest, table, options = {}) {
 
 function showGuestNameTooltip(event) {
   if (!els.canvasTooltip) return;
-  const target = event.target.closest?.(".guest-chip-main[data-full-name]");
+  const target = event.target.closest?.(".guest-chip[data-canvas-tooltip]");
   if (!target) return;
-  const nameNode = target.querySelector(".guest-chip-name");
-  if (!nameNode || nameNode.scrollWidth <= nameNode.clientWidth + 1) return;
-  els.canvasTooltip.textContent = target.dataset.fullName;
+  els.canvasTooltip.textContent = target.dataset.canvasTooltip;
   els.canvasTooltip.hidden = false;
   positionGuestNameTooltip(event, target);
 }
@@ -1621,8 +1628,8 @@ function moveGuestNameTooltip(event) {
 
 function hideGuestNameTooltip(event) {
   if (!els.canvasTooltip) return;
-  const target = event?.target?.closest?.(".guest-chip-main[data-full-name]");
-  if ((event?.type === "pointerout" || event?.type === "mouseout") && target?.contains(event.relatedTarget)) return;
+  const target = event?.target?.closest?.(".guest-chip[data-canvas-tooltip]");
+  if (["pointerout", "mouseout", "focusout"].includes(event?.type) && target?.contains(event.relatedTarget)) return;
   els.canvasTooltip.hidden = true;
   els.canvasTooltip.style.transform = "translate(-9999px, -9999px)";
 }
