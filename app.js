@@ -3884,14 +3884,19 @@ function guestHaystack(guest) {
   const invitationLabel = invitationMeta[guest.invitationType]?.label || "無";
   const deliveryLabel = invitationDeliveryMeta[guest.invitationDelivery]?.label || "未寄送";
   const invitationStatus = invitationStatusFor(guest).label;
-  return `${guest.name} ${guest.phone} ${guest.relation} ${guest.group} ${guest.seatGroup || ""} ${guest.note} ${tableLabel(guest.tableId)} ${rsvpMeta[guest.rsvp].label} ${guest.childSeats || 0} ${guest.vegetarianCount || 0} ${invitationLabel} ${deliveryLabel} ${invitationStatus} ${guest.address || ""} ${guest.email || ""}`.toLowerCase();
+  return `${guest.name} ${guest.phone} ${guest.relation} ${guest.group} ${seatGroupSearchTerms(guest)} ${guest.note} ${tableLabel(guest.tableId)} ${rsvpMeta[guest.rsvp].label} ${guest.childSeats || 0} ${guest.vegetarianCount || 0} ${invitationLabel} ${deliveryLabel} ${invitationStatus} ${guest.address || ""} ${guest.email || ""}`.toLowerCase();
 }
 
 function invitationHaystack(guest) {
   const invitationLabel = invitationMeta[guest.invitationType]?.label || "無";
   const deliveryLabel = invitationDeliveryMeta[guest.invitationDelivery]?.label || "未寄送";
   const invitationStatus = invitationStatusFor(guest).label;
-  return `${guest.name} ${guest.phone} ${guest.relation} ${guest.group} ${guest.seatGroup || ""} ${guest.note} ${tableLabel(guest.tableId)} ${invitationLabel} ${deliveryLabel} ${invitationStatus} ${guest.address || ""} ${guest.email || ""}`.toLowerCase();
+  return `${guest.name} ${guest.phone} ${guest.relation} ${guest.group} ${seatGroupSearchTerms(guest)} ${guest.note} ${tableLabel(guest.tableId)} ${invitationLabel} ${deliveryLabel} ${invitationStatus} ${guest.address || ""} ${guest.email || ""}`.toLowerCase();
+}
+
+function seatGroupSearchTerms(guest) {
+  const seatGroup = normalizeSeatGroup(guest.seatGroup);
+  return seatGroup ? `${seatGroup} 組${seatGroup} 座位群組${seatGroup} 座位分組${seatGroup}` : "";
 }
 
 function invitationSortValue(guest) {
