@@ -9,7 +9,7 @@
     <title>囍座位規劃</title>
     <link rel="manifest" href="./manifest.json" />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=wedding-planner-62" />
+    <link rel="stylesheet" href="./styles.css?v=wedding-planner-63" />
   </head>
   <body>
     <div class="app-shell">
@@ -239,6 +239,10 @@
             <button class="secondary-action guest-filter-button" id="guestFilterButton" type="button" aria-controls="guestFilterPanel" aria-expanded="false">
               <span data-icon="settings"></span>
               <span data-filter-label>篩選</span>
+            </button>
+            <button class="danger-action guest-bulk-delete-button" id="guestBulkDeleteButton" type="button" hidden>
+              <span data-icon="trash"></span>
+              <span data-bulk-delete-label>刪除 0 筆</span>
             </button>
             <div class="guest-filter-panel" id="guestFilterPanel">
               <select id="rsvpFilter" aria-label="回覆狀態">
@@ -708,6 +712,6 @@
     <div class="canvas-tooltip" id="canvasTooltip" role="tooltip" hidden></div>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-    <script src="./app.js?v=wedding-planner-62"></script>
+    <script src="./app.js?v=wedding-planner-63"></script>
   </body>
 </html>

@@ -190,6 +190,7 @@ let movingLayoutItem = null;
 let suppressTableClickId = null;
 let activeGuestDrag = null;
 let suppressGuestClickId = null;
+let selectedGuestIds = new Set();
 let layoutUndoStack = [];
 let layoutRedoStack = [];
 let isRestoringHistory = false;
@@ -245,6 +246,7 @@ const els = {
   guestListToolbar: document.querySelector("#guestListToolbar"),
   guestFilterButton: document.querySelector("#guestFilterButton"),
   guestFilterPanel: document.querySelector("#guestFilterPanel"),
+  guestBulkDeleteButton: document.querySelector("#guestBulkDeleteButton"),
   guestSearchInput: document.querySelector("#guestSearchInput"),
   rsvpFilter: document.querySelector("#rsvpFilter"),
   assignmentFilter: document.querySelector("#assignmentFilter"),
@@ -411,6 +413,7 @@ function bindEvents() {
   els.focusUnassignedButton.addEventListener("click", () => setView("guests", { assignment: "unassigned" }));
   els.unassignedSearchInput.addEventListener("input", renderUnassigned);
   els.guestFilterButton.addEventListener("click", toggleGuestFilters);
+  els.guestBulkDeleteButton.addEventListener("click", confirmDeleteSelectedGuests);
   els.guestSearchInput.addEventListener("input", renderGuestTable);
   els.rsvpFilter.addEventListener("change", renderGuestTable);
   els.assignmentFilter.addEventListener("change", renderGuestTable);
@@ -817,18 +820,26 @@ function renderGuestTable() {
     })
     .filter((guest) => !query || guestHaystack(guest).includes(query))
     .sort(compareGuestRows);
+  pruneGuestSelection(rows.map((guest) => guest.id));
+  const selectedCount = selectedGuestIds.size;
 
   els.guestTable.innerHTML = `
     <div class="table-scroll" role="region" aria-label="賓客名單表格">
       <div class="table-row guest-table header">
+        <span class="cell-selection">
+          <input class="guest-selection-checkbox" id="guestSelectAllCurrent" type="checkbox" aria-label="選取目前顯示的所有賓客" ${rows.length ? "" : "disabled"} />
+        </span>
         ${GUEST_SORT_COLUMNS.map(guestTableHeaderCell).join("")}
         <span class="cell-actions">操作</span>
       </div>
       ${rows.length ? rows.map((guest) => {
         const assignmentStatus = guestAssignmentStatus(guest);
         return `
-          <div class="table-row guest-table" data-guest-row="${guest.id}">
+          <div class="table-row guest-table ${selectedGuestIds.has(guest.id) ? "is-selected" : ""}" data-guest-row="${guest.id}">
             ${mobileGuestSummaryButton(guest, assignmentStatus)}
+            <span class="cell-selection">
+              <input class="guest-selection-checkbox" data-select-guest="${guest.id}" type="checkbox" aria-label="選取${escapeHTML(guest.name)}" ${selectedGuestIds.has(guest.id) ? "checked" : ""} />
+            </span>
             <div class="guest-name-cell" data-label="姓名">
               <button class="guest-name-button" data-edit-guest="${guest.id}" data-allow-delete="true" type="button" aria-label="編輯${escapeHTML(guest.name)}">
                 <strong class="guest-name-text" title="${escapeHTML(guest.name)}">${escapeHTML(guest.name)}</strong>
@@ -870,12 +881,14 @@ function renderGuestTable() {
       }).join("") : empty("沒有符合條件的賓客。")}
     </div>
     <div class="table-pagination guest-summary" aria-label="賓客名單摘要">
-      <span>${rows.length ? `共 ${rows.length} 筆賓客` : "共 0 筆"}</span>
+      <span>${rows.length ? `共 ${rows.length} 筆賓客${selectedCount ? ` · 已選取 ${selectedCount} 筆` : ""}` : "共 0 筆"}</span>
     </div>
   `;
   bindGuestSortHeaders(els.guestTable);
+  bindGuestSelectionControls(els.guestTable, rows.map((guest) => guest.id));
   bindGuestInlineEdits(els.guestTable);
   bindGuestActions(els.guestTable);
+  updateGuestBulkDeleteButton();
 }
 
 function guestTableHeaderCell(column) {
@@ -886,6 +899,57 @@ function bindGuestSortHeaders(root) {
   root.querySelectorAll("[data-guest-sort]").forEach((button) => {
     button.addEventListener("click", () => updateGuestSort(button.dataset.guestSort));
   });
+}
+
+function bindGuestSelectionControls(root, visibleIds) {
+  const visibleSet = new Set(visibleIds);
+  const selectedVisibleCount = visibleIds.filter((id) => selectedGuestIds.has(id)).length;
+  const selectAll = root.querySelector("#guestSelectAllCurrent");
+  if (selectAll) {
+    selectAll.checked = visibleIds.length > 0 && selectedVisibleCount === visibleIds.length;
+    selectAll.indeterminate = selectedVisibleCount > 0 && selectedVisibleCount < visibleIds.length;
+    selectAll.addEventListener("change", () => {
+      visibleIds.forEach((id) => {
+        if (selectAll.checked) {
+          selectedGuestIds.add(id);
+        } else {
+          selectedGuestIds.delete(id);
+        }
+      });
+      renderGuestTable();
+    });
+  }
+  root.querySelectorAll("[data-select-guest]").forEach((checkbox) => {
+    checkbox.addEventListener("click", (event) => event.stopPropagation());
+    checkbox.addEventListener("change", () => {
+      const guestId = checkbox.dataset.selectGuest;
+      if (!visibleSet.has(guestId)) return;
+      if (checkbox.checked) {
+        selectedGuestIds.add(guestId);
+      } else {
+        selectedGuestIds.delete(guestId);
+      }
+      renderGuestTable();
+    });
+  });
+}
+
+function pruneGuestSelection(visibleIds) {
+  const visibleSet = new Set(visibleIds);
+  const existingIds = new Set(state.guests.map((guest) => guest.id));
+  selectedGuestIds = new Set([...selectedGuestIds].filter((id) => visibleSet.has(id) && existingIds.has(id)));
+}
+
+function selectedGuests() {
+  return state.guests.filter((guest) => selectedGuestIds.has(guest.id));
+}
+
+function updateGuestBulkDeleteButton() {
+  const count = selectedGuestIds.size;
+  els.guestBulkDeleteButton.hidden = count === 0;
+  const label = els.guestBulkDeleteButton.querySelector("[data-bulk-delete-label]");
+  if (label) label.textContent = count ? `刪除 ${count} 筆` : "刪除 0 筆";
+  els.guestBulkDeleteButton.setAttribute("aria-label", count ? `刪除已選取的 ${count} 筆賓客` : "尚未選取賓客");
 }
 
 function updateGuestSort(key) {
@@ -2251,10 +2315,38 @@ function confirmDeleteGuest(guest) {
     onConfirm: () => {
       writeAutoSnapshot("刪除賓客前");
       state.guests = state.guests.filter((item) => item.id !== guest.id);
+      selectedGuestIds.delete(guest.id);
       saveState();
       if (els.guestDialog.open) closeGuestDialog();
       renderAll();
       showToast("賓客已刪除");
+    },
+  });
+}
+
+function confirmDeleteSelectedGuests() {
+  const guests = selectedGuests();
+  if (!guests.length) {
+    updateGuestBulkDeleteButton();
+    return;
+  }
+  const guestIds = new Set(guests.map((guest) => guest.id));
+  const namePreview = guests.slice(0, 4).map((guest) => guest.name).join("、");
+  const moreText = guests.length > 4 ? ` 等 ${guests.length} 筆` : "";
+  openConfirm({
+    kicker: "批次刪除賓客",
+    title: `刪除 ${guests.length} 筆賓客？`,
+    message: `包含 ${namePreview}${moreText}。這會同步移除座位安排，但不會刪除已登記的同名禮金紀錄。`,
+    icon: icons.trash,
+    actionLabel: "確認刪除",
+    onConfirm: () => {
+      writeAutoSnapshot("批次刪除賓客前");
+      state.guests = state.guests.filter((guest) => !guestIds.has(guest.id));
+      selectedGuestIds.clear();
+      saveState();
+      if (els.guestDialog.open) closeGuestDialog();
+      renderAll();
+      showToast(`已刪除 ${guests.length} 筆賓客`);
     },
   });
 }

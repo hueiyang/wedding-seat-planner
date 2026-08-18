@@ -206,6 +206,10 @@ button > span {
   line-height: 1;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 .event-card {
   display: grid;
   gap: 8px;
@@ -1731,6 +1735,11 @@ button > span {
   border-color: rgba(47, 109, 88, 0.28);
 }
 
+.guest-bulk-delete-button {
+  flex: 0 0 auto;
+  box-shadow: none;
+}
+
 .list-toolbar select {
   min-height: 40px;
   padding: 0 10px;
@@ -1844,8 +1853,12 @@ button > span {
 }
 
 .table-row.guest-table {
-  grid-template-columns: minmax(190px, 1.25fr) 120px 112px 92px 132px 96px 88px 86px 82px minmax(150px, 1fr) minmax(210px, 1.1fr) 96px;
-  min-width: 1574px;
+  grid-template-columns: 42px minmax(190px, 1.25fr) 120px 112px 92px 132px 96px 88px 86px 82px minmax(150px, 1fr) minmax(210px, 1.1fr) 96px;
+  min-width: 1628px;
+}
+
+.table-row.guest-table.is-selected {
+  background: #fbfdfb;
 }
 
 .table-row.invitation-table {
@@ -1872,8 +1885,24 @@ button > span {
   text-align: center;
 }
 
+.cell-selection {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.guest-selection-checkbox {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--sage);
+  cursor: pointer;
+}
+
 .table-row.guest-table > .cell-center,
 .table-row.guest-table > .cell-left,
+.table-row.guest-table > .cell-selection,
 .table-row.guest-table > .guest-name-cell,
 .table-row.guest-table > .row-actions {
   align-self: stretch;
@@ -1955,6 +1984,10 @@ button > span {
   justify-content: center;
   background: var(--surface);
   box-shadow: -10px 0 16px rgba(248, 249, 247, 0.88);
+}
+
+.table-row.guest-table.is-selected > .row-actions {
+  background: #fbfdfb;
 }
 
 .table-row.guest-table.header > .cell-actions {
@@ -3043,6 +3076,23 @@ button > span {
 
   #guestTable .table-row.guest-table:not(.header) > :not(.mobile-guest-card) {
     display: none !important;
+  }
+
+  #guestTable .table-row.guest-table:not(.header) > .cell-selection.cell-selection {
+    display: inline-flex !important;
+    align-self: stretch;
+    flex: 0 0 38px;
+    order: -1;
+    border-right: 1px solid var(--line);
+  }
+
+  #guestTable .table-row.guest-table:not(.header).is-selected {
+    background: #fbfdfb;
+  }
+
+  #guestTable .table-row.guest-table:not(.header) > .mobile-guest-card {
+    flex: 1 1 auto;
+    width: auto;
   }
 
   #invitationTable .table-row.invitation-table:not(.header) > :not(.mobile-invitation-card) {
