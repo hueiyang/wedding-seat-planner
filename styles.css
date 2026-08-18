@@ -1009,9 +1009,11 @@ button > span {
   position: absolute;
   top: var(--chip-y, 50%);
   left: var(--chip-x, 50%);
-  max-width: clamp(88px, calc(var(--table-size, 238px) * 0.37), 116px);
+  width: clamp(118px, calc(var(--table-size, 238px) * 0.43), 132px);
+  max-width: none;
   min-height: 23px;
-  padding: 0 3px 0 7px;
+  overflow: hidden;
+  padding: 0 22px 0 7px;
   border-color: rgba(63, 105, 89, 0.18);
   background: rgba(255, 255, 255, 0.94);
   box-shadow: 0 4px 10px rgba(35, 39, 36, 0.08);
@@ -1040,22 +1042,31 @@ button > span {
 }
 
 .seat-table .guest-chip-main {
-  gap: 4px;
+  width: 100%;
+  overflow: hidden;
+  gap: 3px;
 }
 
 .seat-table .guest-chip-name {
-  flex: 0 1 auto;
-  min-width: 3.2em;
-  max-width: 58px;
+  flex: 1 1 3em;
+  min-width: 0;
+  max-width: none;
 }
 
 .seat-table .guest-chip .party-size {
   font-size: 10px;
 }
 
-.seat-table .guest-special {
+.seat-table .guest-chip-seat-group {
+  min-width: 16px;
   min-height: 15px;
   padding: 0 4px;
+  font-size: 9px;
+}
+
+.seat-table .guest-special {
+  min-height: 15px;
+  padding: 0 3px;
   font-size: 9px;
 }
 
@@ -1105,8 +1116,16 @@ button > span {
   width: 18px;
   height: 18px;
   flex: 0 0 auto;
+  margin-left: auto;
   border-radius: 50%;
   color: var(--subtle);
+}
+
+.seat-table .chip-remove {
+  position: absolute;
+  top: 50%;
+  right: 2px;
+  transform: translateY(-50%);
 }
 
 .chip-remove:hover {

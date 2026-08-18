@@ -1539,7 +1539,7 @@ function guestChip(guest, showNames, options = {}) {
   return `
     <div class="guest-chip ${guest.rsvp} ${specialClass}${ringClass}" draggable="true" data-guest-id="${guest.id}"${tableAttribute}${seatAttribute}${styleAttribute}>
       <button class="guest-chip-main" data-edit-guest="${guest.id}"${tooltipAttribute} type="button" aria-label="${escapeHTML(ariaLabel)}">
-        ${showSeatGroup ? `<span class="guest-chip-seat-group">組${escapeHTML(seatGroup)}</span>` : ""}
+        ${showSeatGroup ? `<span class="guest-chip-seat-group" title="座位群組 ${escapeHTML(seatGroup)}">${escapeHTML(seatGroup)}</span>` : ""}
         <span class="guest-chip-name">${escapeHTML(displayName)}</span>
         <span class="party-size">${partySize(guest)}位</span>
         ${vegetarianCount ? `<span class="guest-special vegetarian">素${vegetarianCount}</span>` : ""}
