@@ -1875,7 +1875,7 @@ function assignGuestToTable(guestId, tableId, options = {}) {
   const nextTableId = tableId || null;
   const sameTable = previousTableId === nextTableId;
   const targetSeatIndex = Number.isFinite(options.seatIndex) ? Math.round(options.seatIndex) : null;
-  const swapTarget = resolveSeatSwapTarget(guestId, nextTableId, options.targetGuestId, targetSeatIndex);
+  const swapTarget = resolveSeatSwapTarget(guestId, nextTableId, options.targetGuestId);
   if (swapTarget) {
     swapGuestSeatAssignments(guest, swapTarget);
     return;
@@ -1903,12 +1903,12 @@ function assignGuestToTable(guestId, tableId, options = {}) {
     : `已將 ${guest.name} 移回待安排`);
 }
 
-function resolveSeatSwapTarget(guestId, tableId, targetGuestId = "", targetSeatIndex = null) {
-  if (!tableId) return null;
-  const directTarget = targetGuestId && targetGuestId !== guestId ? findGuest(targetGuestId) : null;
-  if (directTarget?.tableId === tableId && directTarget.rsvp !== "declined") return directTarget;
-  if (!Number.isFinite(targetSeatIndex)) return null;
-  return tableGuests(tableId).find((guest, index) => guest.id !== guestId && index === targetSeatIndex) || null;
+function resolveSeatSwapTarget(guestId, tableId, targetGuestId = "") {
+  if (!tableId || !targetGuestId || targetGuestId === guestId) return null;
+  const directTarget = findGuest(targetGuestId);
+  return directTarget?.tableId === tableId && directTarget.rsvp !== "declined"
+    ? directTarget
+    : null;
 }
 
 function swapGuestSeatAssignments(sourceGuest, targetGuest) {
@@ -1980,16 +1980,21 @@ function seatIndexFromDropPoint(tableNode, clientX, clientY, guestId) {
   return Math.round(normalized / (360 / nextCount)) % nextCount;
 }
 
+function guestChipDropTarget(candidate, clientX, clientY, tableId, guestId) {
+  const targetChip = candidate?.closest?.(".guest-chip[data-table-id]")
+    || document.elementFromPoint(clientX, clientY)?.closest?.(".guest-chip[data-table-id]");
+  if (!targetChip || targetChip.dataset.tableId !== tableId || targetChip.dataset.guestId === guestId) return null;
+  const rect = targetChip.getBoundingClientRect();
+  if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) return null;
+  return targetChip;
+}
+
 function seatDropOptionsFromPoint(tableNode, clientX, clientY, guestId, target = null) {
   const tableId = tableNode?.dataset?.tableId || "";
-  const targetChip = target?.closest?.(".guest-chip[data-table-id]")
-    || document.elementFromPoint(clientX, clientY)?.closest?.(".guest-chip[data-table-id]");
-  const targetGuestId = targetChip?.dataset.tableId === tableId && targetChip.dataset.guestId !== guestId
-    ? targetChip.dataset.guestId
-    : "";
+  const targetChip = guestChipDropTarget(target, clientX, clientY, tableId, guestId);
   return {
     seatIndex: seatIndexFromDropPoint(tableNode, clientX, clientY, guestId),
-    targetGuestId,
+    targetGuestId: targetChip?.dataset.guestId || "",
   };
 }
 
