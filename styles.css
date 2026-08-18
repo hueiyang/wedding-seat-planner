@@ -1915,6 +1915,10 @@ button > span {
   white-space: nowrap;
 }
 
+.table-select-cell {
+  min-width: 0;
+}
+
 .guest-name-text,
 .guest-phone-text {
   display: block;
@@ -1977,6 +1981,10 @@ button > span {
 
 .inline-select {
   padding: 0 8px;
+}
+
+.inline-table-select {
+  min-width: 0;
 }
 
 .inline-seat-group {

@@ -855,7 +855,11 @@ function renderGuestTable() {
             <span class="cell-center" data-label="同行"><input class="inline-field inline-number" data-guest-field="companions" data-guest-id="${guest.id}" type="number" min="0" step="1" value="${Math.max(0, Number.parseInt(guest.companions, 10) || 0)}" aria-label="編輯${escapeHTML(guest.name)}的同行人數" /></span>
             <span class="cell-center" data-label="兒童椅"><input class="inline-field inline-number" data-guest-field="childSeats" data-guest-id="${guest.id}" type="number" min="0" step="1" value="${guest.childSeats || 0}" aria-label="編輯${escapeHTML(guest.name)}的兒童座椅數量" /></span>
             <span class="cell-center" data-label="素食"><input class="inline-field inline-number" data-guest-field="vegetarianCount" data-guest-id="${guest.id}" type="number" min="0" step="1" value="${guest.vegetarianCount || 0}" aria-label="編輯${escapeHTML(guest.name)}的素食人數" /></span>
-            <span class="cell-left table-label-cell" data-label="桌次">${escapeHTML(tableLabel(guest.tableId))}</span>
+            <span class="cell-left table-select-cell" data-label="桌次">
+              <select class="inline-field inline-select inline-table-select" data-guest-field="tableId" data-guest-id="${guest.id}" aria-label="編輯${escapeHTML(guest.name)}的桌次" ${guest.rsvp === "declined" ? "disabled" : ""}>
+                ${tableAssignmentOptions(guest.tableId)}
+              </select>
+            </span>
             <span class="cell-left note-preview" data-label="備註" title="${escapeHTML(guest.note || "未填備註")}">${escapeHTML(guest.note || "未填備註")}</span>
             <div class="row-actions" data-label="操作">
               <button class="icon-button" data-edit-guest="${guest.id}" data-allow-delete="true" type="button" aria-label="編輯">${icons.edit}</button>
@@ -1174,6 +1178,11 @@ function updateGuestInlineField(guestId, field, value) {
   const guest = findGuest(guestId);
   if (!guest) return;
   const nextValue = normalizeGuestInlineValue(field, value);
+  if (field === "tableId") {
+    if ((guest.tableId || null) === nextValue) return;
+    assignGuestToTable(guestId, nextValue);
+    return;
+  }
   if (guest[field] === nextValue) return;
   guest[field] = nextValue;
   if (field === "rsvp" && nextValue === "declined") guest.tableId = null;
@@ -1189,11 +1198,22 @@ function normalizeGuestInlineValue(field, value) {
   if (field === "relation") return normalizeRelation(value);
   if (field === "invitationType") return normalizeInvitationType(value);
   if (field === "invitationDelivery") return normalizeInvitationDelivery(value);
+  if (field === "tableId") return findTable(value) ? value : null;
   if (["companions", "childSeats", "vegetarianCount"].includes(field)) {
     return Math.max(0, Number.parseInt(value, 10) || 0);
   }
   if (["note", "address", "email", "seatGroup"].includes(field)) return cleanText(value);
   return value;
+}
+
+function tableAssignmentOptions(selectedTableId = "") {
+  const selected = selectedTableId || "";
+  return ['<option value="" ' + (!selected ? "selected" : "") + ">待安排</option>"]
+    .concat(state.tables.map((table) => {
+      const tableId = table.id || "";
+      return `<option value="${escapeHTML(tableId)}" ${selected === tableId ? "selected" : ""}>${escapeHTML(tableLabel(tableId))}</option>`;
+    }))
+    .join("");
 }
 
 function rsvpOptions(selected) {
@@ -1414,10 +1434,7 @@ function tableGuestDetailRow(guest) {
 }
 
 function renderGuestSelects() {
-  const tableOptions = ['<option value="">待安排</option>']
-    .concat(state.tables.map((table) => `<option value="${table.id}">${escapeHTML(tableLabel(table.id))}</option>`))
-    .join("");
-  els.guestForm.elements.tableId.innerHTML = tableOptions;
+  els.guestForm.elements.tableId.innerHTML = tableAssignmentOptions();
 
   const giftOptions = ['<option value="">未連結名單</option>']
     .concat(state.guests.map((guest) => `<option value="${guest.id}">${escapeHTML(guest.name)}</option>`))
