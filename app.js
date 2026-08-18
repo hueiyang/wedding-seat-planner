@@ -123,7 +123,8 @@ const seedState = {
     zoom: 1,
     coordinateMode: "px",
     layoutLocked: false,
-    showSeatGroups: false,
+    showSeatGroups: true,
+    showSeatGroupsPreferenceSet: false,
   },
   meta: {
     updatedAt: "",
@@ -3183,6 +3184,10 @@ function loadState() {
 }
 
 function normalizeState(value) {
+  const sourceCanvas = value.canvas || {};
+  const hasSeatGroupPreference = Object.prototype.hasOwnProperty.call(sourceCanvas, "showSeatGroupsPreferenceSet")
+    ? sourceCanvas.showSeatGroupsPreferenceSet === true
+    : false;
   const legacyCoordinates = value.canvas?.coordinateMode !== "px";
   const toCanvasX = (input, fallback) => {
     const valueNumber = Number(input);
@@ -3195,7 +3200,7 @@ function normalizeState(value) {
     return legacyCoordinates ? Math.round((valueNumber / 100) * LEGACY_CANVAS_HEIGHT) : valueNumber;
   };
   const next = {
-    canvas: { ...seedState.canvas, ...(value.canvas || {}), coordinateMode: "px" },
+    canvas: { ...seedState.canvas, ...sourceCanvas, coordinateMode: "px" },
     meta: { ...seedState.meta, ...(value.meta || {}) },
     wedding: { ...seedState.wedding, ...(value.wedding || {}) },
     venueItems: Array.isArray(value.venueItems) ? value.venueItems : structuredClone(seedState.venueItems),
@@ -3204,7 +3209,8 @@ function normalizeState(value) {
     gifts: Array.isArray(value.gifts) ? value.gifts : structuredClone(seedState.gifts),
   };
   next.canvas.zoom = normalizeCanvasZoom(next.canvas.zoom);
-  next.canvas.showSeatGroups = next.canvas.showSeatGroups === true;
+  next.canvas.showSeatGroups = hasSeatGroupPreference ? sourceCanvas.showSeatGroups === true : true;
+  next.canvas.showSeatGroupsPreferenceSet = hasSeatGroupPreference;
   next.venueItems = seedState.venueItems.map((seedItem) => {
     const item = next.venueItems.find((entry) => entry.id === seedItem.id) || {};
     return {
@@ -3396,6 +3402,7 @@ function setLayoutLock(locked) {
 
 function setSeatGroupVisibility(visible) {
   state.canvas.showSeatGroups = Boolean(visible);
+  state.canvas.showSeatGroupsPreferenceSet = true;
   saveState({ createSnapshot: false });
   renderSeating();
   renderUnassigned();
