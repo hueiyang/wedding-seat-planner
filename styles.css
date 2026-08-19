@@ -212,7 +212,6 @@ button:disabled {
 .secondary-action,
 .icon-button,
 .danger-action,
-.segmented-control button,
 .mini-button {
   display: inline-flex;
   align-items: center;
@@ -489,8 +488,8 @@ body:not([data-view="guests"]) #addGuestButton {
   flex: 0 0 auto;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-  margin-bottom: 12px;
+  gap: 8px;
+  margin-bottom: 8px;
 }
 
 .metric-card,
@@ -508,37 +507,59 @@ body:not([data-view="guests"]) #addGuestButton {
 
 .metric-card {
   display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 6px 12px;
-  padding: 15px;
+  grid-template-areas:
+    "icon label value"
+    "icon note value";
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  align-items: center;
+  gap: 3px 9px;
+  min-height: 54px;
+  padding: 8px 11px;
 }
 
 .metric-card span:first-child {
+  grid-area: label;
+  min-width: 0;
   color: var(--muted);
-  font-size: 13px;
-  font-weight: 850;
+  font-size: 11.5px;
+  font-weight: 900;
+  line-height: 1.1;
 }
 
 .metric-card strong {
-  font-size: 28px;
-  line-height: 1;
+  grid-area: value;
+  justify-self: end;
+  font-size: 21px;
+  line-height: 1.05;
   letter-spacing: 0;
+  white-space: nowrap;
 }
 
 .metric-card .metric-note {
+  grid-area: note;
+  min-width: 0;
+  overflow: hidden;
   color: var(--subtle);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .metric-card .metric-icon {
   display: grid;
-  grid-row: 1 / span 3;
-  grid-column: 2;
+  grid-area: icon;
   place-items: center;
-  width: 42px;
-  height: 42px;
+  width: 30px;
+  height: 30px;
   border-radius: var(--radius);
+}
+
+.metric-card .metric-icon svg {
+  width: 16px;
+  height: 16px;
 }
 
 .view {
@@ -589,27 +610,6 @@ body:not([data-view="guests"]) #addGuestButton {
   gap: 12px;
   padding: 10px;
   border-bottom: 1px solid var(--line);
-}
-
-.segmented-control {
-  display: inline-flex;
-  gap: 4px;
-  padding: 4px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--surface-2);
-}
-
-.segmented-control button {
-  min-height: 32px;
-  padding: 0 12px;
-  color: var(--muted);
-  background: transparent;
-}
-
-.segmented-control button.active {
-  color: #fff;
-  background: var(--sage);
 }
 
 .toolbar-cluster {
@@ -2485,6 +2485,10 @@ body:not([data-view="guests"]) #addGuestButton {
   gap: 8px;
 }
 
+.data-tool-actions.two-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .data-tool-actions .secondary-action {
   min-width: 0;
   width: 100%;
@@ -2737,6 +2741,27 @@ body:not([data-view="guests"]) #addGuestButton {
 @media (max-width: 1180px) {
   .app-shell {
     grid-template-columns: 218px minmax(0, 1fr);
+  }
+
+  .metric-card {
+    grid-template-columns: 26px minmax(0, 1fr);
+    grid-template-areas:
+      "icon label"
+      "icon value";
+  }
+
+  .metric-card strong {
+    justify-self: start;
+    font-size: 19px;
+  }
+
+  .metric-card .metric-note {
+    display: none;
+  }
+
+  .metric-card .metric-icon {
+    width: 26px;
+    height: 26px;
   }
 
   .table-manager {

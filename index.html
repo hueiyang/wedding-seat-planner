@@ -9,7 +9,7 @@
     <title>囍座位規劃</title>
     <link rel="manifest" href="./manifest.json" />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=wedding-planner-68" />
+    <link rel="stylesheet" href="./styles.css?v=wedding-planner-71" />
   </head>
   <body>
     <div class="app-shell">
@@ -117,10 +117,6 @@
           <div class="planner-layout">
             <section class="workspace-panel">
               <div class="workspace-toolbar">
-                <div class="segmented-control" aria-label="檢視模式">
-                  <button class="active" type="button">座位圖</button>
-                  <button data-view-jump="guests" type="button">清單檢視</button>
-                </div>
                 <div class="toolbar-cluster">
                   <label class="select-field">
                     <span>顯示</span>
@@ -607,6 +603,22 @@
               </button>
             </div>
           </section>
+          <section class="data-tool-section" aria-label="座位圖輸出">
+            <div class="data-tool-header">
+              <span data-icon="layout"></span>
+              <strong>座位圖輸出</strong>
+            </div>
+            <div class="data-tool-actions two-actions">
+              <button class="secondary-action" id="exportSeatingPngButton" type="button">
+                <span data-icon="download"></span>
+                <span>匯出 PNG</span>
+              </button>
+              <button class="secondary-action" id="printSeatingPdfButton" type="button">
+                <span data-icon="archive"></span>
+                <span>列印 / 存 PDF</span>
+              </button>
+            </div>
+          </section>
           <section class="data-tool-section" aria-label="備份與同步">
             <div class="data-tool-header">
               <span data-icon="cloud"></span>
@@ -759,6 +771,6 @@
     <div class="canvas-tooltip" id="canvasTooltip" role="tooltip" hidden></div>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-    <script src="./app.js?v=wedding-planner-68"></script>
+    <script src="./app.js?v=wedding-planner-71"></script>
   </body>
 </html>

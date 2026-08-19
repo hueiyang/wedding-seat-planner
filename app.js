@@ -20,6 +20,14 @@ const STAGE_WIDTH = TABLE_CARD_WIDTH * 2;
 const STAGE_DEPTH = Math.round(TABLE_CARD_DEPTH * 0.5);
 const GIFT_DESK_WIDTH = Math.round(TABLE_CARD_WIDTH * 0.5);
 const GIFT_DESK_DEPTH = Math.round(TABLE_CARD_DEPTH * 0.5);
+const SEATING_EXPORT_TABLE_SIZE = 164;
+const SEATING_EXPORT_PADDING = 140;
+const SEATING_EXPORT_HEADER_HEIGHT = 156;
+const SEATING_EXPORT_MAX_SIDE = 4200;
+const SEATING_EXPORT_MIN_WIDTH = 1100;
+const SEATING_EXPORT_MIN_SCALE = 0.48;
+const SEATING_EXPORT_MAX_SCALE = 1.35;
+const SEATING_EXPORT_FONT = 'Inter, "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif';
 const BACKUP_VERSION = 1;
 const SNAPSHOT_KEY = "wedding.seating.snapshots.v1";
 const CLOUD_SYNC_CONFIG_KEY = "wedding.seating.cloudSync.v1";
@@ -274,6 +282,8 @@ const els = {
   dataToolsDialog: document.querySelector("#dataToolsDialog"),
   closeDataToolsDialogButton: document.querySelector("#closeDataToolsDialogButton"),
   cancelDataToolsButton: document.querySelector("#cancelDataToolsButton"),
+  exportSeatingPngButton: document.querySelector("#exportSeatingPngButton"),
+  printSeatingPdfButton: document.querySelector("#printSeatingPdfButton"),
   importButton: document.querySelector("#importButton"),
   importFile: document.querySelector("#importFile"),
   templateButton: document.querySelector("#templateButton"),
@@ -378,15 +388,13 @@ function bindEvents() {
   els.hideSidebarButton.addEventListener("click", () => setSidebarHidden(true));
   els.showSidebarButton.addEventListener("click", () => setSidebarHidden(false));
   els.navItems.forEach((item) => item.addEventListener("click", () => setView(item.dataset.view)));
-  document.querySelectorAll("[data-view-jump]").forEach((button) => {
-    button.addEventListener("click", () => setView(button.dataset.viewJump));
-  });
-
   els.dataToolsButtons.forEach((button) => button.addEventListener("click", openDataToolsDialog));
   els.importButton.addEventListener("click", () => els.importFile.click());
   els.importFile.addEventListener("change", handleImportFile);
   els.templateButton.addEventListener("click", downloadTemplate);
   els.exportButton.addEventListener("click", exportData);
+  els.exportSeatingPngButton.addEventListener("click", exportSeatingChartPng);
+  els.printSeatingPdfButton.addEventListener("click", printSeatingChartPdf);
   els.backupButton.addEventListener("click", downloadFullBackup);
   els.restoreButton.addEventListener("click", () => els.restoreFile.click());
   els.restoreFile.addEventListener("change", handleRestoreFile);
@@ -2711,6 +2719,341 @@ function exportData() {
   showToast("賓客名單已匯出");
 }
 
+async function exportSeatingChartPng() {
+  if (!state.tables.length) {
+    showToast("目前沒有桌次可匯出");
+    return;
+  }
+  await waitForFonts();
+  const canvas = createSeatingExportCanvas();
+  canvas.toBlob((blob) => {
+    if (!blob) {
+      showToast("座位圖匯出失敗，請再試一次");
+      return;
+    }
+    downloadBlob(`wedding-seating-chart-${todayISO()}.png`, blob);
+    closeDataToolsDialog();
+    showToast("座位圖 PNG 已匯出");
+  }, "image/png");
+}
+
+async function printSeatingChartPdf() {
+  if (!state.tables.length) {
+    showToast("目前沒有桌次可匯出");
+    return;
+  }
+  const printWindow = window.open("", "_blank");
+  if (!printWindow) {
+    showToast("瀏覽器阻擋列印視窗，請改用 PNG 匯出");
+    return;
+  }
+  printWindow.document.write("<!doctype html><title>正在產生座位圖...</title><body>正在產生座位圖...</body>");
+  await waitForFonts();
+  const canvas = createSeatingExportCanvas();
+  const dataUrl = canvas.toDataURL("image/png");
+  const orientation = canvas.width >= canvas.height ? "landscape" : "portrait";
+  const wedding = { ...seedState.wedding, ...(state.wedding || {}) };
+  const title = `${wedding.name || "婚禮"}座位圖`;
+  printWindow.document.open();
+  printWindow.document.write(`
+    <!doctype html>
+    <html lang="zh-Hant">
+      <head>
+        <meta charset="UTF-8" />
+        <title>${escapeHTML(title)}</title>
+        <style>
+          @page { size: ${orientation}; margin: 10mm; }
+          html, body { margin: 0; min-height: 100%; background: #f8f9f7; }
+          body { display: grid; place-items: center; font-family: ${SEATING_EXPORT_FONT}; }
+          img { display: block; max-width: 100%; max-height: 100vh; object-fit: contain; }
+          @media print {
+            html, body { background: #fff; }
+            img { width: 100%; max-height: none; }
+          }
+        </style>
+      </head>
+      <body>
+        <img src="${dataUrl}" alt="${escapeHTML(title)}" />
+        <script>
+          window.addEventListener("load", () => setTimeout(() => window.print(), 250));
+        </script>
+      </body>
+    </html>
+  `);
+  printWindow.document.close();
+  closeDataToolsDialog();
+  showToast("已開啟列印視窗，可選擇存成 PDF");
+}
+
+function waitForFonts() {
+  return document.fonts?.ready?.catch?.(() => {}) || Promise.resolve();
+}
+
+function createSeatingExportCanvas() {
+  const bounds = seatingExportBounds();
+  const mapLogicalWidth = bounds.right - bounds.left + SEATING_EXPORT_PADDING * 2;
+  const mapLogicalHeight = bounds.bottom - bounds.top + SEATING_EXPORT_PADDING * 2;
+  const fitScale = Math.min(
+    SEATING_EXPORT_MAX_SCALE,
+    SEATING_EXPORT_MAX_SIDE / Math.max(1, mapLogicalWidth),
+    (SEATING_EXPORT_MAX_SIDE - SEATING_EXPORT_HEADER_HEIGHT) / Math.max(1, mapLogicalHeight)
+  );
+  const scale = fitScale < SEATING_EXPORT_MIN_SCALE
+    ? fitScale
+    : clamp(fitScale, SEATING_EXPORT_MIN_SCALE, SEATING_EXPORT_MAX_SCALE);
+  const mapPixelWidth = Math.ceil(mapLogicalWidth * scale);
+  const mapPixelHeight = Math.ceil(mapLogicalHeight * scale);
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(SEATING_EXPORT_MIN_WIDTH, mapPixelWidth);
+  canvas.height = SEATING_EXPORT_HEADER_HEIGHT + mapPixelHeight;
+
+  const ctx = canvas.getContext("2d");
+  const mapOffsetX = Math.round((canvas.width - mapPixelWidth) / 2);
+  const toX = (x) => mapOffsetX + (x - bounds.left + SEATING_EXPORT_PADDING) * scale;
+  const toY = (y) => SEATING_EXPORT_HEADER_HEIGHT + (y - bounds.top + SEATING_EXPORT_PADDING) * scale;
+
+  drawSeatingExportBackground(ctx, canvas.width, canvas.height, mapOffsetX, SEATING_EXPORT_HEADER_HEIGHT, mapPixelWidth, mapPixelHeight);
+  drawSeatingExportHeader(ctx, canvas.width, SEATING_EXPORT_HEADER_HEIGHT);
+  state.venueItems.forEach((item) => drawSeatingExportVenue(ctx, item, toX, toY, scale));
+  state.tables.forEach((table) => drawSeatingExportTable(ctx, table, toX(table.x || 0), toY(table.y || 0), scale));
+  drawSeatingExportFooter(ctx, canvas.width, canvas.height);
+  return canvas;
+}
+
+function seatingExportBounds() {
+  const tableItems = state.tables.map((table) => {
+    const size = SEATING_EXPORT_TABLE_SIZE * (table.kind === "head" ? 1.08 : 1);
+    return {
+      x: Number(table.x) || 0,
+      y: Number(table.y) || 0,
+      width: size,
+      height: size,
+    };
+  });
+  const venueItems = state.venueItems.map((item) => ({
+    x: Number(item.x) || 0,
+    y: Number(item.y) || 0,
+    width: Number(item.width) || 140,
+    height: Number(item.height) || 60,
+  }));
+  const items = [...venueItems, ...tableItems];
+  if (!items.length) return { left: 0, top: 0, right: 1000, bottom: 700 };
+  return items.reduce((bounds, item) => ({
+    left: Math.min(bounds.left, item.x - item.width / 2),
+    top: Math.min(bounds.top, item.y - item.height / 2),
+    right: Math.max(bounds.right, item.x + item.width / 2),
+    bottom: Math.max(bounds.bottom, item.y + item.height / 2),
+  }), { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity });
+}
+
+function drawSeatingExportBackground(ctx, width, height, mapX, mapY, mapWidth, mapHeight) {
+  ctx.fillStyle = "#f8f9f7";
+  ctx.fillRect(0, 0, width, height);
+  ctx.fillStyle = "#ffffff";
+  drawRoundedRect(ctx, 28, 22, width - 56, height - 44, 18);
+  ctx.fill();
+  ctx.strokeStyle = "#dfe4df";
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.fillStyle = "#fbfcfa";
+  drawRoundedRect(ctx, mapX + 18, mapY + 8, mapWidth - 36, mapHeight - 18, 14);
+  ctx.fill();
+  ctx.strokeStyle = "#e4e9e4";
+  ctx.stroke();
+}
+
+function drawSeatingExportHeader(ctx, width, height) {
+  const wedding = { ...seedState.wedding, ...(state.wedding || {}) };
+  const summary = seatingExportSummary();
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(42, 36, width - 84, height - 48);
+
+  drawCanvasText(ctx, "座位圖", 52, 56, {
+    size: 30,
+    weight: 950,
+    color: "#242427",
+    align: "left",
+  });
+  drawCanvasText(ctx, wedding.name || "婚禮", 52, 88, {
+    size: 15,
+    weight: 900,
+    color: "#2f6d58",
+    align: "left",
+    maxWidth: Math.max(240, width * 0.48),
+  });
+  drawCanvasText(ctx, [wedding.date, wedding.venue].filter(Boolean).join(" · "), 52, 113, {
+    size: 12,
+    weight: 800,
+    color: "#6d7374",
+    align: "left",
+    maxWidth: Math.max(320, width * 0.55),
+  });
+
+  const chips = [
+    `桌次 ${summary.tables}`,
+    `已排 ${summary.people}/${summary.capacity} 位`,
+    `素 ${summary.vegetarian}`,
+    `兒 ${summary.childSeats}`,
+  ];
+  let right = width - 52;
+  chips.slice().reverse().forEach((chip) => {
+    setCanvasFont(ctx, 13, 900);
+    const chipWidth = Math.ceil(ctx.measureText(chip).width + 24);
+    right -= chipWidth;
+    ctx.fillStyle = chip.includes("素") ? "#e1f3e7" : chip.includes("兒") ? "#eaf5fb" : "#f3f5f4";
+    drawRoundedRect(ctx, right, 48, chipWidth, 34, 17);
+    ctx.fill();
+    ctx.fillStyle = chip.includes("素") ? "#214b3d" : chip.includes("兒") ? "#23526c" : "#4d5657";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(chip, right + chipWidth / 2, 65);
+    right -= 8;
+  });
+}
+
+function seatingExportSummary() {
+  const seatedGuests = state.guests.filter((guest) => guest.rsvp !== "declined" && guest.tableId);
+  return {
+    tables: state.tables.length,
+    people: seatedGuests.reduce((sum, guest) => sum + partySize(guest), 0),
+    capacity: state.tables.reduce((sum, table) => sum + (Number(table.capacity) || 0), 0),
+    vegetarian: seatedGuests.reduce((sum, guest) => sum + (Number.parseInt(guest.vegetarianCount, 10) || 0), 0),
+    childSeats: seatedGuests.reduce((sum, guest) => sum + (Number.parseInt(guest.childSeats, 10) || 0), 0),
+  };
+}
+
+function drawSeatingExportVenue(ctx, item, toX, toY, scale) {
+  const width = Math.max(56, (Number(item.width) || 140) * scale);
+  const height = Math.max(30, (Number(item.height) || 60) * scale);
+  const x = toX(item.x || 0) - width / 2;
+  const y = toY(item.y || 0) - height / 2;
+  const isStage = item.id === "stage";
+  ctx.fillStyle = isStage ? "#fff8fb" : "#f7fbf8";
+  ctx.strokeStyle = isStage ? "#e9cbdc" : "#cfe0d4";
+  ctx.lineWidth = Math.max(1, scale);
+  drawRoundedRect(ctx, x, y, width, height, Math.max(8, 8 * scale));
+  ctx.fill();
+  ctx.stroke();
+  drawCanvasText(ctx, item.label || "場地", x + width / 2, y + height / 2, {
+    size: Math.max(11, 14 * scale),
+    weight: 950,
+    color: isStage ? "#4b243d" : "#214b3d",
+    align: "center",
+    baseline: "middle",
+    maxWidth: width - 16,
+  });
+}
+
+function drawSeatingExportTable(ctx, table, x, y, scale) {
+  const occupancy = tableOccupancy(table.id);
+  const capacity = Number(table.capacity) || 1;
+  const specialCounts = tableSpecialCounts(table.id);
+  const status = tableSeatStatus({ ...table, occupancy });
+  const colors = seatingExportStatusColors(status.className);
+  const radius = (SEATING_EXPORT_TABLE_SIZE * (table.kind === "head" ? 1.08 : 1) * scale) / 2;
+  const fontScale = clamp(scale, 0.72, 1.15);
+
+  ctx.fillStyle = colors.outer;
+  ctx.strokeStyle = colors.border;
+  ctx.lineWidth = Math.max(2, 2 * scale);
+  ctx.beginPath();
+  ctx.arc(x, y, radius, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = "#ffffff";
+  ctx.beginPath();
+  ctx.arc(x, y, radius * 0.72, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = colors.innerBorder;
+  ctx.lineWidth = Math.max(1, scale);
+  ctx.stroke();
+
+  const lines = [
+    { text: tableDisplayName(table), size: 15, weight: 950, color: "#242427" },
+    table.alias ? { text: table.alias, size: 11.5, weight: 850, color: "#2f6d58" } : null,
+    { text: `${occupancy}/${capacity} 位`, size: 14, weight: 950, color: colors.text },
+    { text: `素${specialCounts.vegetarianCount || 0} 兒${specialCounts.childSeats || 0}`, size: 12, weight: 900, color: "#6d7374" },
+  ].filter(Boolean);
+  const lineHeight = 17 * fontScale;
+  const totalHeight = (lines.length - 1) * lineHeight;
+  const maxWidth = radius * 1.38;
+  lines.forEach((line, index) => {
+    drawCanvasText(ctx, line.text, x, y - totalHeight / 2 + index * lineHeight, {
+      size: line.size * fontScale,
+      weight: line.weight,
+      color: line.color,
+      align: "center",
+      baseline: "middle",
+      maxWidth,
+    });
+  });
+}
+
+function seatingExportStatusColors(status) {
+  const palette = {
+    over: { outer: "#ffe5e3", border: "#d88984", innerBorder: "#f2bab6", text: "#9f3632" },
+    full: { outer: "#e1f3e7", border: "#9fceb1", innerBorder: "#c5e6d0", text: "#214b3d" },
+    high: { outer: "#fff7d9", border: "#e4c86f", innerBorder: "#f0dea0", text: "#816019" },
+    medium: { outer: "#eaf5fb", border: "#a6cfe5", innerBorder: "#cfe1ee", text: "#23526c" },
+    low: { outer: "#f3f5f4", border: "#cfd8d1", innerBorder: "#dfe4df", text: "#687274" },
+  };
+  return palette[status] || palette.low;
+}
+
+function drawSeatingExportFooter(ctx, width, height) {
+  drawCanvasText(ctx, `匯出時間 ${formatDateTime(nowISO())}`, width - 52, height - 30, {
+    size: 11,
+    weight: 800,
+    color: "#8c9394",
+    align: "right",
+  });
+}
+
+function drawCanvasText(ctx, text, x, y, options = {}) {
+  const {
+    size = 13,
+    weight = 800,
+    color = "#242427",
+    align = "left",
+    baseline = "alphabetic",
+    maxWidth = Infinity,
+  } = options;
+  setCanvasFont(ctx, size, weight);
+  ctx.fillStyle = color;
+  ctx.textAlign = align;
+  ctx.textBaseline = baseline;
+  ctx.fillText(ellipsizeCanvasText(ctx, text, maxWidth), x, y);
+}
+
+function setCanvasFont(ctx, size, weight = 800) {
+  ctx.font = `${weight} ${Math.max(9, Math.round(size))}px ${SEATING_EXPORT_FONT}`;
+}
+
+function ellipsizeCanvasText(ctx, value, maxWidth) {
+  const text = String(value ?? "");
+  if (!Number.isFinite(maxWidth) || ctx.measureText(text).width <= maxWidth) return text;
+  if (maxWidth <= ctx.measureText("...").width) return "";
+  let end = text.length;
+  while (end > 0 && ctx.measureText(`${text.slice(0, end)}...`).width > maxWidth) end -= 1;
+  return `${text.slice(0, end)}...`;
+}
+
+function drawRoundedRect(ctx, x, y, width, height, radius) {
+  const safeRadius = Math.min(radius, width / 2, height / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + safeRadius, y);
+  ctx.lineTo(x + width - safeRadius, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + safeRadius);
+  ctx.lineTo(x + width, y + height - safeRadius);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - safeRadius, y + height);
+  ctx.lineTo(x + safeRadius, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - safeRadius);
+  ctx.lineTo(x, y + safeRadius);
+  ctx.quadraticCurveTo(x, y, x + safeRadius, y);
+  ctx.closePath();
+}
+
 function parseCSV(text) {
   const rows = [];
   let row = [];
@@ -2749,7 +3092,10 @@ function csvLine(values) {
 }
 
 function downloadText(filename, content, type) {
-  const blob = new Blob([content], { type });
+  downloadBlob(filename, new Blob([content], { type }));
+}
+
+function downloadBlob(filename, blob) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
