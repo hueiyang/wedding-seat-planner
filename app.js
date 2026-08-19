@@ -1,4 +1,5 @@
 const STORAGE_KEY = "wedding.seating.planner.v1";
+const SIDEBAR_HIDDEN_KEY = "wedding.seating.sidebarHidden.v1";
 const CANVAS_MIN_WIDTH = 5000;
 const CANVAS_MIN_HEIGHT = 3600;
 const TABLE_COLUMN_WIDTH = 280;
@@ -75,6 +76,8 @@ const icons = {
   cloud: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17.5 19H8a5 5 0 1 1 1.3-9.8A6 6 0 0 1 21 11.5 3.8 3.8 0 0 1 17.5 19Z"/><path d="M12 12v5M9.5 14.5 12 12l2.5 2.5"/></svg>',
   settings: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 6h10M18 6h2"/><circle cx="16" cy="6" r="2"/><path d="M4 12h2M10 12h10"/><circle cx="8" cy="12" r="2"/><path d="M4 18h12M20 18h0"/><circle cx="18" cy="18" r="2"/></svg>',
   menu: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
+  panelLeftClose: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/><path d="m16 10-3 2 3 2"/></svg>',
+  panelLeftOpen: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/><path d="m13 10 3 2-3 2"/></svg>',
 };
 
 const rsvpMeta = {
@@ -185,6 +188,7 @@ let currentView = "seating";
 let guestSort = { key: "rsvp", direction: "asc" };
 let invitationSort = { key: "status", direction: "asc" };
 let giftSort = { key: "date", direction: "desc" };
+let sidebarHidden = loadSidebarHiddenPreference();
 let pendingConfirmation = null;
 let movingLayoutItem = null;
 let suppressTableClickId = null;
@@ -206,6 +210,7 @@ let pendingSnapshotSignature = "";
 const guestInlineEditTimers = new Map();
 
 const els = {
+  appShell: document.querySelector(".app-shell"),
   topbar: document.querySelector(".topbar"),
   sidebar: document.querySelector(".sidebar"),
   todayLabel: document.querySelector("#todayLabel"),
@@ -213,6 +218,8 @@ const els = {
   mobileNavButton: document.querySelector("#mobileNavButton"),
   mobileNavLabel: document.querySelector("#mobileNavLabel"),
   mobileToolsButton: document.querySelector("#mobileToolsButton"),
+  hideSidebarButton: document.querySelector("#hideSidebarButton"),
+  showSidebarButton: document.querySelector("#showSidebarButton"),
   eventLabel: document.querySelector("#eventLabel"),
   eventName: document.querySelector("#eventName"),
   eventDate: document.querySelector("#eventDate"),
@@ -351,6 +358,7 @@ els.todayLabel.textContent = new Intl.DateTimeFormat("zh-Hant-TW", {
   weekday: "long",
 }).format(new Date());
 document.body.dataset.view = currentView;
+syncSidebarVisibility();
 
 bindEvents();
 renderAll();
@@ -363,6 +371,8 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
 function bindEvents() {
   els.mobileNavButton.addEventListener("click", toggleMobileNav);
   els.mobileToolsButton.addEventListener("click", toggleMobileTools);
+  els.hideSidebarButton.addEventListener("click", () => setSidebarHidden(true));
+  els.showSidebarButton.addEventListener("click", () => setSidebarHidden(false));
   els.navItems.forEach((item) => item.addEventListener("click", () => setView(item.dataset.view)));
   document.querySelectorAll("[data-view-jump]").forEach((button) => {
     button.addEventListener("click", () => setView(button.dataset.viewJump));
@@ -555,6 +565,25 @@ function toggleMobileTools() {
 function closeMobileTools() {
   els.topbar.classList.remove("tools-open");
   els.mobileToolsButton.setAttribute("aria-expanded", "false");
+}
+
+function setSidebarHidden(hidden) {
+  sidebarHidden = Boolean(hidden);
+  saveSidebarHiddenPreference(sidebarHidden);
+  closeMobileNav();
+  closeMobileTools();
+  syncSidebarVisibility();
+  window.requestAnimationFrame(() => {
+    if (currentView === "seating") syncZoomControls();
+  });
+  showToast(sidebarHidden ? "左側選單已隱藏" : "左側選單已顯示");
+}
+
+function syncSidebarVisibility() {
+  els.appShell.classList.toggle("sidebar-hidden", sidebarHidden);
+  els.hideSidebarButton.setAttribute("aria-expanded", String(!sidebarHidden));
+  els.showSidebarButton.setAttribute("aria-expanded", String(sidebarHidden));
+  els.showSidebarButton.setAttribute("aria-hidden", String(!sidebarHidden));
 }
 
 function toggleGuestFilters() {
@@ -3296,6 +3325,22 @@ function loadState() {
     return raw ? JSON.parse(raw) : structuredClone(seedState);
   } catch {
     return structuredClone(seedState);
+  }
+}
+
+function loadSidebarHiddenPreference() {
+  try {
+    return localStorage.getItem(SIDEBAR_HIDDEN_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function saveSidebarHiddenPreference(hidden) {
+  try {
+    localStorage.setItem(SIDEBAR_HIDDEN_KEY, hidden ? "true" : "false");
+  } catch {
+    // Layout preference is non-critical; ignore private browsing/storage failures.
   }
 }
 

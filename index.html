@@ -9,17 +9,20 @@
     <title>囍座位規劃</title>
     <link rel="manifest" href="./manifest.json" />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=wedding-planner-63" />
+    <link rel="stylesheet" href="./styles.css?v=wedding-planner-66" />
   </head>
   <body>
     <div class="app-shell">
-      <aside class="sidebar" aria-label="主要導覽">
+      <aside class="sidebar" id="mainSidebar" aria-label="主要導覽">
         <div class="brand">
           <div class="brand-mark" aria-hidden="true">囍</div>
           <div>
             <h1>囍座位規劃</h1>
             <p>婚宴賓客工作台</p>
           </div>
+          <button class="sidebar-toggle-button" id="hideSidebarButton" type="button" aria-controls="mainSidebar" aria-label="隱藏左側選單" title="隱藏左側選單">
+            <span data-icon="panelLeftClose"></span>
+          </button>
         </div>
 
         <div class="mobile-header-actions">
@@ -79,9 +82,14 @@
 
       <main class="main-panel">
         <header class="topbar">
-          <div class="topbar-title">
-            <p class="date-label" id="todayLabel"></p>
-            <h2 id="viewTitle">座位圖</h2>
+          <div class="topbar-heading">
+            <button class="sidebar-restore-button" id="showSidebarButton" type="button" aria-controls="mainSidebar" aria-label="顯示左側選單" title="顯示左側選單">
+              <span data-icon="panelLeftOpen"></span>
+            </button>
+            <div class="topbar-title">
+              <h2 id="viewTitle">座位圖</h2>
+              <p class="date-label" id="todayLabel"></p>
+            </div>
           </div>
           <div class="topbar-actions" id="topbarActions">
             <input id="importFile" type="file" accept=".csv,text/csv" hidden />
@@ -712,6 +720,6 @@
     <div class="canvas-tooltip" id="canvasTooltip" role="tooltip" hidden></div>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-    <script src="./app.js?v=wedding-planner-63"></script>
+    <script src="./app.js?v=wedding-planner-66"></script>
   </body>
 </html>
