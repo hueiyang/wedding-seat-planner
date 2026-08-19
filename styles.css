@@ -95,6 +95,8 @@ button:disabled {
 .gift-row,
 .table-card-header,
 .table-stats,
+.data-tool-header,
+.data-tool-status,
 .dialog-header,
 .dialog-actions {
   display: flex;
@@ -391,6 +393,16 @@ button > span {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 9px;
+}
+
+.data-tools-topbar-action {
+  display: inline-flex;
+}
+
+body:not([data-view="seating"]):not([data-view="tables"]) #addTableButton,
+body:not([data-view="seating"]):not([data-view="tables"]) #fill30TablesButton,
+body:not([data-view="guests"]) #addGuestButton {
+  display: none;
 }
 
 .mobile-tools-button {
@@ -2427,6 +2439,72 @@ button > span {
   font-weight: 800;
 }
 
+.app-dialog.data-tools-dialog {
+  width: min(620px, calc(100vw - 28px));
+}
+
+.data-tools-grid {
+  display: grid;
+  gap: 4px;
+}
+
+.data-tool-section {
+  display: grid;
+  gap: 12px;
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+}
+
+.data-tool-section:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.data-tool-header {
+  justify-content: flex-start;
+  gap: 8px;
+  color: var(--sage-deep);
+  font-size: 14px;
+}
+
+.data-tool-header [data-icon] {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius);
+  background: var(--sage-soft);
+}
+
+.data-tool-header svg {
+  width: 16px;
+  height: 16px;
+}
+
+.data-tool-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.data-tool-actions .secondary-action {
+  min-width: 0;
+  width: 100%;
+  padding: 0 10px;
+}
+
+.data-tool-status {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.data-tool-status .backup-status,
+.data-tool-status .cloud-status {
+  min-height: 28px;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
 .app-dialog,
 .confirm-dialog {
   width: min(720px, calc(100vw - 28px));
@@ -2842,6 +2920,10 @@ button > span {
     display: grid;
   }
 
+  .topbar-actions .data-tools-topbar-action {
+    display: inline-flex;
+  }
+
   .topbar-actions > button,
   .topbar-actions > .backup-actions {
     width: 100%;
@@ -2871,6 +2953,10 @@ button > span {
     grid-column: 1 / -1;
     padding: 0;
     white-space: normal;
+  }
+
+  .data-tool-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .metrics-grid {

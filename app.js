@@ -270,6 +270,10 @@ const els = {
   giftMethodFilter: document.querySelector("#giftMethodFilter"),
   giftTable: document.querySelector("#giftTable"),
   tableManager: document.querySelector("#tableManager"),
+  dataToolsButtons: document.querySelectorAll("[data-open-data-tools]"),
+  dataToolsDialog: document.querySelector("#dataToolsDialog"),
+  closeDataToolsDialogButton: document.querySelector("#closeDataToolsDialogButton"),
+  cancelDataToolsButton: document.querySelector("#cancelDataToolsButton"),
   importButton: document.querySelector("#importButton"),
   importFile: document.querySelector("#importFile"),
   templateButton: document.querySelector("#templateButton"),
@@ -378,6 +382,7 @@ function bindEvents() {
     button.addEventListener("click", () => setView(button.dataset.viewJump));
   });
 
+  els.dataToolsButtons.forEach((button) => button.addEventListener("click", openDataToolsDialog));
   els.importButton.addEventListener("click", () => els.importFile.click());
   els.importFile.addEventListener("change", handleImportFile);
   els.templateButton.addEventListener("click", downloadTemplate);
@@ -454,6 +459,8 @@ function bindEvents() {
   els.closeGiftDialogButton.addEventListener("click", closeGiftDialog);
   els.cancelGiftButton.addEventListener("click", closeGiftDialog);
   els.cancelConfirmButton.addEventListener("click", closeConfirmDialog);
+  els.closeDataToolsDialogButton.addEventListener("click", closeDataToolsDialog);
+  els.cancelDataToolsButton.addEventListener("click", closeDataToolsDialog);
   els.closeSnapshotDialogButton.addEventListener("click", closeSnapshotDialog);
   els.cancelSnapshotButton.addEventListener("click", closeSnapshotDialog);
   els.closeSettingsDialogButton.addEventListener("click", closeSettingsDialog);
@@ -507,6 +514,7 @@ function bindDialogBackdropClose() {
   closeDialogOnBackdrop(els.tableGuestsDialog, closeTableGuestsDialog);
   closeDialogOnBackdrop(els.giftDialog, closeGiftDialog);
   closeDialogOnBackdrop(els.confirmDialog, closeConfirmDialog);
+  closeDialogOnBackdrop(els.dataToolsDialog, closeDataToolsDialog);
   closeDialogOnBackdrop(els.snapshotDialog, closeSnapshotDialog);
   closeDialogOnBackdrop(els.settingsDialog, closeSettingsDialog);
   closeDialogOnBackdrop(els.cloudSyncDialog, closeCloudSyncDialog);
@@ -565,6 +573,16 @@ function toggleMobileTools() {
 function closeMobileTools() {
   els.topbar.classList.remove("tools-open");
   els.mobileToolsButton.setAttribute("aria-expanded", "false");
+}
+
+function openDataToolsDialog() {
+  closeMobileNav();
+  closeMobileTools();
+  if (!els.dataToolsDialog.open) els.dataToolsDialog.showModal();
+}
+
+function closeDataToolsDialog() {
+  if (els.dataToolsDialog.open) els.dataToolsDialog.close();
 }
 
 function setSidebarHidden(hidden) {
@@ -2562,6 +2580,7 @@ async function handleImportFile(event) {
     const result = importGuestsFromCSV(text);
     saveState();
     renderAll();
+    closeDataToolsDialog();
     showToast(`已匯入 ${result.imported} 筆名單${result.gifts ? `、${result.gifts} 筆禮金` : ""}`);
   } catch (error) {
     showToast(error.message || "匯入失敗，請確認 CSV 格式");
@@ -2761,6 +2780,7 @@ async function handleRestoreFile(event) {
     const data = JSON.parse(await file.text());
     const nextState = extractBackupState(data);
     const summary = summarizeState(nextState);
+    closeDataToolsDialog();
     openConfirm({
       kicker: "還原備份",
       title: "用備份檔覆蓋目前資料？",
@@ -2945,6 +2965,7 @@ function validDateString(value) {
 }
 
 function openSnapshotDialog() {
+  closeDataToolsDialog();
   renderSnapshotList();
   els.snapshotDialog.showModal();
 }
@@ -3047,6 +3068,7 @@ function cloudPayloadStateCandidate(payload) {
 }
 
 function openCloudSyncDialog() {
+  closeDataToolsDialog();
   els.cloudSyncForm.elements.url.value = cloudSyncConfig.url;
   els.cloudSyncForm.elements.anonKey.value = cloudSyncConfig.anonKey;
   els.cloudSyncForm.elements.syncKey.value = cloudSyncConfig.syncKey;

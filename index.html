@@ -9,7 +9,7 @@
     <title>囍座位規劃</title>
     <link rel="manifest" href="./manifest.json" />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=wedding-planner-66" />
+    <link rel="stylesheet" href="./styles.css?v=wedding-planner-68" />
   </head>
   <body>
     <div class="app-shell">
@@ -92,40 +92,10 @@
             </div>
           </div>
           <div class="topbar-actions" id="topbarActions">
-            <input id="importFile" type="file" accept=".csv,text/csv" hidden />
-            <button class="secondary-action" id="importButton" type="button">
-              <span data-icon="upload"></span>
-              <span>匯入名單</span>
-            </button>
-            <button class="secondary-action" id="templateButton" type="button">
-              <span data-icon="download"></span>
-              <span>下載樣板</span>
-            </button>
-            <button class="secondary-action" id="exportButton" type="button">
+            <button class="secondary-action data-tools-topbar-action" id="dataToolsButton" data-open-data-tools type="button">
               <span data-icon="archive"></span>
-              <span>匯出名單</span>
+              <span>資料工具</span>
             </button>
-            <input id="restoreFile" type="file" accept=".json,application/json" hidden />
-            <div class="backup-actions" aria-label="資料安全">
-              <button class="secondary-action" id="backupButton" type="button">
-                <span data-icon="download"></span>
-                <span>備份資料</span>
-              </button>
-              <button class="secondary-action" id="restoreButton" type="button">
-                <span data-icon="upload"></span>
-                <span>還原備份</span>
-              </button>
-              <button class="secondary-action" id="snapshotButton" type="button">
-                <span data-icon="archive"></span>
-                <span>快照</span>
-              </button>
-              <button class="secondary-action" id="cloudSyncButton" type="button">
-                <span data-icon="cloud"></span>
-                <span>雲端同步</span>
-              </button>
-              <span class="backup-status" id="backupStatus">尚未備份</span>
-              <span class="cloud-status" id="cloudSyncStatus">本機模式</span>
-            </div>
             <button class="primary-action" id="addTableButton" type="button">
               <span data-icon="plus"></span>
               <span>新增桌次</span>
@@ -604,6 +574,75 @@
       </form>
     </dialog>
 
+    <dialog class="app-dialog data-tools-dialog" id="dataToolsDialog">
+      <form class="dialog-form" method="dialog">
+        <div class="dialog-header">
+          <div>
+            <p>系統設定</p>
+            <h3>資料工具</h3>
+          </div>
+          <button class="icon-button" id="closeDataToolsDialogButton" type="button" aria-label="關閉">
+            <span data-icon="x"></span>
+          </button>
+        </div>
+        <div class="data-tools-grid">
+          <section class="data-tool-section" aria-label="名單管理">
+            <div class="data-tool-header">
+              <span data-icon="users"></span>
+              <strong>名單管理</strong>
+            </div>
+            <div class="data-tool-actions">
+              <input id="importFile" type="file" accept=".csv,text/csv" hidden />
+              <button class="secondary-action" id="importButton" type="button">
+                <span data-icon="upload"></span>
+                <span>匯入名單</span>
+              </button>
+              <button class="secondary-action" id="templateButton" type="button">
+                <span data-icon="download"></span>
+                <span>下載樣板</span>
+              </button>
+              <button class="secondary-action" id="exportButton" type="button">
+                <span data-icon="archive"></span>
+                <span>匯出名單</span>
+              </button>
+            </div>
+          </section>
+          <section class="data-tool-section" aria-label="備份與同步">
+            <div class="data-tool-header">
+              <span data-icon="cloud"></span>
+              <strong>備份與同步</strong>
+            </div>
+            <div class="data-tool-actions">
+              <input id="restoreFile" type="file" accept=".json,application/json" hidden />
+              <button class="secondary-action" id="backupButton" type="button">
+                <span data-icon="download"></span>
+                <span>備份資料</span>
+              </button>
+              <button class="secondary-action" id="restoreButton" type="button">
+                <span data-icon="upload"></span>
+                <span>還原備份</span>
+              </button>
+              <button class="secondary-action" id="snapshotButton" type="button">
+                <span data-icon="archive"></span>
+                <span>快照</span>
+              </button>
+              <button class="secondary-action" id="cloudSyncButton" type="button">
+                <span data-icon="cloud"></span>
+                <span>雲端同步</span>
+              </button>
+            </div>
+            <div class="data-tool-status" aria-label="資料狀態">
+              <span class="backup-status" id="backupStatus">尚未備份</span>
+              <span class="cloud-status" id="cloudSyncStatus">本機模式</span>
+            </div>
+          </section>
+        </div>
+        <div class="dialog-actions">
+          <button class="secondary-action" id="cancelDataToolsButton" type="button">關閉</button>
+        </div>
+      </form>
+    </dialog>
+
     <dialog class="app-dialog compact-dialog" id="snapshotDialog">
       <form class="dialog-form" method="dialog">
         <div class="dialog-header">
@@ -720,6 +759,6 @@
     <div class="canvas-tooltip" id="canvasTooltip" role="tooltip" hidden></div>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-    <script src="./app.js?v=wedding-planner-66"></script>
+    <script src="./app.js?v=wedding-planner-68"></script>
   </body>
 </html>
