@@ -496,6 +496,7 @@ body:not([data-view="guests"]) #addGuestButton {
 .workspace-panel,
 .rail-panel,
 .data-table,
+.table-summary-card,
 .table-card,
 .app-dialog,
 .confirm-dialog {
@@ -670,6 +671,20 @@ body:not([data-view="guests"]) #addGuestButton {
   overflow: auto;
   overscroll-behavior: contain;
   background: #f5f7f5;
+  cursor: grab;
+}
+
+.seating-canvas.pan-ready,
+.seating-canvas.panning-canvas {
+  cursor: grabbing;
+}
+
+.seating-canvas.panning-canvas .canvas-content {
+  user-select: none;
+}
+
+.seating-canvas.panning-canvas * {
+  cursor: grabbing !important;
 }
 
 .canvas-surface {
@@ -1081,7 +1096,7 @@ body:not([data-view="guests"]) #addGuestButton {
   position: absolute;
   top: var(--chip-y, 50%);
   left: var(--chip-x, 50%);
-  width: clamp(118px, calc(var(--table-size, 238px) * 0.43), 132px);
+  width: clamp(132px, calc(var(--table-size, 238px) * 0.49), 150px);
   max-width: none;
   min-height: 23px;
   overflow: hidden;
@@ -2226,6 +2241,92 @@ body:not([data-view="guests"]) #addGuestButton {
   padding-right: 4px;
 }
 
+.table-manager-summary {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.table-summary-card {
+  display: grid;
+  grid-template-areas:
+    "icon label"
+    "icon value"
+    "icon note";
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: center;
+  gap: 2px 8px;
+  min-height: 68px;
+  padding: 9px 10px;
+}
+
+.table-summary-icon {
+  grid-area: icon;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius);
+  color: var(--sage-deep);
+  background: var(--sage-soft);
+}
+
+.table-summary-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.table-summary-label,
+.table-summary-note {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.table-summary-label {
+  grid-area: label;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 900;
+}
+
+.table-summary-card strong {
+  grid-area: value;
+  font-size: 18px;
+  line-height: 1.1;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.table-summary-note {
+  grid-area: note;
+  color: var(--subtle);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.table-summary-card.good .table-summary-icon {
+  color: var(--sage-deep);
+  background: #e1f3e7;
+}
+
+.table-summary-card.warning .table-summary-icon {
+  color: #8b481c;
+  background: #fff1df;
+}
+
+.table-summary-card.danger .table-summary-icon {
+  color: #9f3632;
+  background: #ffe5e3;
+}
+
+.table-summary-card.danger strong {
+  color: var(--red);
+}
+
 .table-card {
   padding: 14px;
 }
@@ -2282,6 +2383,49 @@ body:not([data-view="guests"]) #addGuestButton {
   display: flex;
   gap: 8px;
   margin-top: 14px;
+}
+
+.table-guests-meta-form {
+  display: grid;
+  grid-template-columns: minmax(94px, 0.75fr) minmax(0, 1.25fr) auto;
+  align-items: end;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.table-guests-meta-form label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.table-guests-meta-form input {
+  width: 100%;
+  min-height: 36px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 850;
+  outline: none;
+}
+
+.table-guests-meta-form input:focus {
+  border-color: rgba(47, 109, 88, 0.55);
+  box-shadow: 0 0 0 3px rgba(47, 109, 88, 0.12);
+}
+
+.table-guests-meta-form .secondary-action {
+  min-height: 36px;
+  padding: 0 10px;
 }
 
 .table-guests-overview {
@@ -2741,6 +2885,10 @@ body:not([data-view="guests"]) #addGuestButton {
 @media (max-width: 1180px) {
   .app-shell {
     grid-template-columns: 218px minmax(0, 1fr);
+  }
+
+  .table-manager-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .metric-card {
@@ -3499,6 +3647,27 @@ body:not([data-view="guests"]) #addGuestButton {
   .table-manager {
     gap: 10px;
     padding-right: 0;
+  }
+
+  .table-manager-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .table-summary-card {
+    min-height: 58px;
+    padding: 8px;
+  }
+
+  .table-guests-meta-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 8px;
+  }
+
+  .table-guests-meta-form .secondary-action {
+    grid-column: 1 / -1;
+    width: 100%;
   }
 
   #giftsView.view.active {

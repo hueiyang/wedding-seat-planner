@@ -9,7 +9,7 @@
     <title>囍座位規劃</title>
     <link rel="manifest" href="./manifest.json" />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=wedding-planner-71" />
+    <link rel="stylesheet" href="./styles.css?v=wedding-planner-74" />
   </head>
   <body>
     <div class="app-shell">
@@ -338,6 +338,7 @@
         </section>
 
         <section class="view" id="tablesView" aria-label="桌次管理">
+          <div class="table-manager-summary" id="tableManagerSummary" aria-label="桌次容量摘要"></div>
           <div class="table-manager" id="tableManager"></div>
         </section>
       </main>
@@ -487,7 +488,7 @@
     </dialog>
 
     <dialog class="app-dialog compact-dialog table-guests-dialog" id="tableGuestsDialog">
-      <form class="dialog-form" method="dialog">
+      <div class="dialog-form">
         <div class="dialog-header">
           <div>
             <p id="tableGuestsDialogKicker">桌次賓客</p>
@@ -497,12 +498,27 @@
             <span data-icon="x"></span>
           </button>
         </div>
+        <form class="table-guests-meta-form" id="tableGuestsMetaForm">
+          <input name="id" type="hidden" />
+          <label>
+            桌號
+            <input name="number" type="text" placeholder="9、A1、主桌" required />
+          </label>
+          <label>
+            桌名 / 別名
+            <input name="alias" type="text" placeholder="女方朋友、男方同事" />
+          </label>
+          <button class="secondary-action" type="submit">
+            <span data-icon="check"></span>
+            <span>更新桌次</span>
+          </button>
+        </form>
         <div class="table-guests-overview" id="tableGuestsOverview"></div>
         <div class="table-guests-detail-list" id="tableGuestsDetailList"></div>
         <div class="dialog-actions">
           <button class="secondary-action" id="cancelTableGuestsButton" type="button">關閉</button>
         </div>
-      </form>
+      </div>
     </dialog>
 
     <dialog class="app-dialog compact-dialog" id="giftDialog">
@@ -771,6 +787,6 @@
     <div class="canvas-tooltip" id="canvasTooltip" role="tooltip" hidden></div>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-    <script src="./app.js?v=wedding-planner-71"></script>
+    <script src="./app.js?v=wedding-planner-74"></script>
   </body>
 </html>

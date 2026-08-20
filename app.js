@@ -199,6 +199,7 @@ let giftSort = { key: "date", direction: "desc" };
 let sidebarHidden = loadSidebarHiddenPreference();
 let pendingConfirmation = null;
 let movingLayoutItem = null;
+let canvasPan = null;
 let suppressTableClickId = null;
 let activeGuestDrag = null;
 let suppressGuestClickId = null;
@@ -277,6 +278,7 @@ const els = {
   giftSearchInput: document.querySelector("#giftSearchInput"),
   giftMethodFilter: document.querySelector("#giftMethodFilter"),
   giftTable: document.querySelector("#giftTable"),
+  tableManagerSummary: document.querySelector("#tableManagerSummary"),
   tableManager: document.querySelector("#tableManager"),
   dataToolsButtons: document.querySelectorAll("[data-open-data-tools]"),
   dataToolsDialog: document.querySelector("#dataToolsDialog"),
@@ -316,6 +318,7 @@ const els = {
   tableGuestsDialog: document.querySelector("#tableGuestsDialog"),
   tableGuestsDialogKicker: document.querySelector("#tableGuestsDialogKicker"),
   tableGuestsDialogTitle: document.querySelector("#tableGuestsDialogTitle"),
+  tableGuestsMetaForm: document.querySelector("#tableGuestsMetaForm"),
   tableGuestsOverview: document.querySelector("#tableGuestsOverview"),
   tableGuestsDetailList: document.querySelector("#tableGuestsDetailList"),
   closeTableGuestsDialogButton: document.querySelector("#closeTableGuestsDialogButton"),
@@ -411,6 +414,7 @@ function bindEvents() {
   els.zoomResetButton.addEventListener("click", () => setCanvasZoom(1));
   els.zoomRange.addEventListener("input", () => setCanvasZoom(Number(els.zoomRange.value) / 100));
   els.seatingCanvas.addEventListener("wheel", handleCanvasWheelZoom, { passive: false });
+  els.seatingCanvas.addEventListener("pointerdown", startCanvasPan);
   els.seatingCanvas.addEventListener("pointerover", showGuestNameTooltip);
   els.seatingCanvas.addEventListener("pointermove", moveGuestNameTooltip);
   els.seatingCanvas.addEventListener("pointerout", hideGuestNameTooltip);
@@ -482,6 +486,7 @@ function bindEvents() {
 
   els.guestForm.addEventListener("submit", saveGuestFromForm);
   els.tableForm.addEventListener("submit", saveTableFromForm);
+  els.tableGuestsMetaForm.addEventListener("submit", saveTableGuestsMetaFromForm);
   els.giftForm.addEventListener("submit", saveGiftFromForm);
   els.settingsForm.addEventListener("submit", saveSettingsFromForm);
   els.confirmForm.addEventListener("submit", (event) => {
@@ -581,6 +586,73 @@ function toggleMobileTools() {
 function closeMobileTools() {
   els.topbar.classList.remove("tools-open");
   els.mobileToolsButton.setAttribute("aria-expanded", "false");
+}
+
+function startCanvasPan(event) {
+  if (event.button !== 0 || event.pointerType === "touch") return;
+  if (!canStartCanvasPan(event) || isCanvasScrollbarPointer(event)) return;
+  canvasPan = {
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    startY: event.clientY,
+    scrollLeft: els.seatingCanvas.scrollLeft,
+    scrollTop: els.seatingCanvas.scrollTop,
+    isPanning: false,
+  };
+  els.seatingCanvas.classList.add("pan-ready");
+  els.seatingCanvas.setPointerCapture?.(event.pointerId);
+  els.seatingCanvas.addEventListener("pointermove", moveCanvasPan);
+  els.seatingCanvas.addEventListener("pointerup", stopCanvasPan, { once: true });
+  els.seatingCanvas.addEventListener("pointercancel", cancelCanvasPan, { once: true });
+}
+
+function canStartCanvasPan(event) {
+  const target = event.target;
+  if (!target?.closest) return false;
+  if (target.closest(".seat-table, .venue-marker, .guest-chip, .table-overflow-chip")) return false;
+  if (target.closest("button, input, select, textarea, label, a, [draggable='true']")) return false;
+  return Boolean(target.closest("#seatingCanvas, .canvas-surface, .canvas-content"));
+}
+
+function isCanvasScrollbarPointer(event) {
+  const rect = els.seatingCanvas.getBoundingClientRect();
+  const scrollbarSize = 18;
+  return event.clientX >= rect.right - scrollbarSize || event.clientY >= rect.bottom - scrollbarSize;
+}
+
+function moveCanvasPan(event) {
+  if (!canvasPan || event.pointerId !== canvasPan.pointerId) return;
+  const dx = event.clientX - canvasPan.startX;
+  const dy = event.clientY - canvasPan.startY;
+  if (!canvasPan.isPanning && Math.hypot(dx, dy) < 3) return;
+  canvasPan.isPanning = true;
+  event.preventDefault();
+  hideGuestNameTooltip();
+  els.seatingCanvas.classList.add("panning-canvas");
+  els.seatingCanvas.scrollLeft = canvasPan.scrollLeft - dx;
+  els.seatingCanvas.scrollTop = canvasPan.scrollTop - dy;
+}
+
+function stopCanvasPan(event) {
+  const wasPanning = Boolean(canvasPan?.isPanning);
+  cleanupCanvasPan();
+  if (wasPanning) event?.preventDefault();
+}
+
+function cancelCanvasPan() {
+  cleanupCanvasPan();
+}
+
+function cleanupCanvasPan() {
+  if (!canvasPan) return;
+  if (els.seatingCanvas.hasPointerCapture?.(canvasPan.pointerId)) {
+    els.seatingCanvas.releasePointerCapture(canvasPan.pointerId);
+  }
+  els.seatingCanvas.removeEventListener("pointermove", moveCanvasPan);
+  els.seatingCanvas.removeEventListener("pointerup", stopCanvasPan);
+  els.seatingCanvas.removeEventListener("pointercancel", cancelCanvasPan);
+  els.seatingCanvas.classList.remove("pan-ready", "panning-canvas");
+  canvasPan = null;
 }
 
 function openDataToolsDialog() {
@@ -1434,6 +1506,7 @@ function defaultGiftCompare(a, b) {
 }
 
 function renderTableManager() {
+  renderTableManagerSummary();
   els.tableManager.innerHTML = state.tables.map((table) => {
     const occupancy = tableOccupancy(table.id);
     const pct = Math.min(100, Math.round((occupancy / Math.max(table.capacity, 1)) * 100));
@@ -1503,8 +1576,57 @@ function renderTableManager() {
   });
 }
 
+function renderTableManagerSummary() {
+  const summary = tableManagerSummary();
+  const balanceLabel = summary.seatBalance >= 0 ? "剩餘座位" : "超出容量";
+  const balanceValue = summary.seatBalance >= 0 ? `${summary.seatBalance} 位` : `${Math.abs(summary.seatBalance)} 位`;
+  const items = [
+    { label: "總桌數", value: `${summary.tables} 桌`, note: `${summary.standardTables} 一般 · ${summary.headTables} 主桌`, icon: "table" },
+    { label: "總座位", value: `${summary.capacity} 位`, note: "全部桌次容量", icon: "users" },
+    { label: "已安排", value: `${summary.seatedPeople} 位`, note: `${summary.seatedGroups} 筆名單`, icon: "check" },
+    { label: balanceLabel, value: balanceValue, note: summary.overTables ? `${summary.overTables} 桌超量` : "依已安排人數計算", icon: summary.seatBalance >= 0 ? "target" : "x", tone: summary.seatBalance >= 0 ? "good" : "danger" },
+    { label: "待安排", value: `${summary.unassignedPeople} 位`, note: `${summary.unassignedGroups} 筆名單`, icon: "target", tone: summary.unassignedPeople ? "warning" : "good" },
+    { label: "特殊需求", value: `素 ${summary.vegetarian} · 兒 ${summary.childSeats}`, note: "已安排桌次內", icon: "gift" },
+  ];
+  els.tableManagerSummary.innerHTML = items.map((item) => `
+    <article class="table-summary-card ${item.tone || ""}">
+      <span class="table-summary-icon">${icons[item.icon] || icons.table}</span>
+      <span class="table-summary-label">${escapeHTML(item.label)}</span>
+      <strong>${escapeHTML(item.value)}</strong>
+      <span class="table-summary-note">${escapeHTML(item.note)}</span>
+    </article>
+  `).join("");
+}
+
+function tableManagerSummary() {
+  const activeGuests = state.guests.filter((guest) => guest.rsvp !== "declined");
+  const seatedGuests = activeGuests.filter((guest) => guest.tableId);
+  const unassignedGuests = activeGuests.filter((guest) => !guest.tableId);
+  const capacity = state.tables.reduce((sum, table) => sum + (Number(table.capacity) || 0), 0);
+  const seatedPeople = seatedGuests.reduce((sum, guest) => sum + partySize(guest), 0);
+  return {
+    tables: state.tables.length,
+    headTables: state.tables.filter((table) => table.kind === "head" || table.number === "主桌").length,
+    standardTables: state.tables.filter((table) => table.kind !== "head" && table.number !== "主桌").length,
+    capacity,
+    seatedPeople,
+    seatedGroups: seatedGuests.length,
+    seatBalance: capacity - seatedPeople,
+    unassignedPeople: unassignedGuests.reduce((sum, guest) => sum + partySize(guest), 0),
+    unassignedGroups: unassignedGuests.length,
+    vegetarian: seatedGuests.reduce((sum, guest) => sum + (Number.parseInt(guest.vegetarianCount, 10) || 0), 0),
+    childSeats: seatedGuests.reduce((sum, guest) => sum + (Number.parseInt(guest.childSeats, 10) || 0), 0),
+    overTables: state.tables.filter((table) => tableOccupancy(table.id) > (Number(table.capacity) || 0)).length,
+  };
+}
+
 function openTableGuestsDialog(table) {
   if (!table) return;
+  renderTableGuestsDialog(table);
+  if (!els.tableGuestsDialog.open) els.tableGuestsDialog.showModal();
+}
+
+function renderTableGuestsDialog(table) {
   const guests = tableGuests(table.id);
   const occupancy = tableOccupancy(table.id);
   const available = table.capacity - occupancy;
@@ -1512,6 +1634,9 @@ function openTableGuestsDialog(table) {
   const seatStatus = tableSeatStatus({ ...table, occupancy });
   els.tableGuestsDialogKicker.textContent = table.alias || "桌次賓客";
   els.tableGuestsDialogTitle.textContent = tableDisplayName(table);
+  els.tableGuestsMetaForm.elements.id.value = table.id;
+  els.tableGuestsMetaForm.elements.number.value = table.number || "";
+  els.tableGuestsMetaForm.elements.alias.value = table.alias || "";
   els.tableGuestsOverview.innerHTML = `
     <span class="table-status-badge ${seatStatus.className}">${seatStatus.icon}<span>${occupancy}/${table.capacity}</span></span>
     <span>${guests.length} 筆名單</span>
@@ -1522,11 +1647,35 @@ function openTableGuestsDialog(table) {
   els.tableGuestsDetailList.innerHTML = guests.length
     ? guests.map(tableGuestDetailRow).join("")
     : empty("這桌目前沒有安排賓客。");
-  els.tableGuestsDialog.showModal();
 }
 
 function closeTableGuestsDialog() {
   els.tableGuestsDialog.close();
+}
+
+function saveTableGuestsMetaFromForm(event) {
+  event.preventDefault();
+  const data = Object.fromEntries(new FormData(els.tableGuestsMetaForm));
+  const table = findTable(data.id);
+  if (!table) return;
+  const number = normalizeTableNumberInput(data.number);
+  const alias = cleanText(data.alias);
+  if (!number) {
+    showToast("請輸入桌號");
+    els.tableGuestsMetaForm.elements.number.focus();
+    return;
+  }
+  if (table.number === number && (table.alias || "") === alias) {
+    showToast("桌次資訊沒有變更");
+    return;
+  }
+  table.number = number;
+  table.alias = alias;
+  table.name = formatTableNumber(number, table.kind);
+  saveState({ snapshotReason: "更新桌次資訊" });
+  renderAll();
+  renderTableGuestsDialog(table);
+  showToast(`${tableDisplayName(table)} 已更新`);
 }
 
 function tableGuestDetailRow(guest) {
